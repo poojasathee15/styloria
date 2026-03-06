@@ -16,7 +16,9 @@ export interface AdminStats {
   'totalBookings' : bigint,
   'completedCount' : bigint,
   'confirmedCount' : bigint,
+  'upcomingBookingsCount' : bigint,
   'totalRevenue' : bigint,
+  'todayBookingsCount' : bigint,
 }
 export interface Appointment {
   'id' : bigint,
@@ -31,6 +33,13 @@ export type AppointmentStatus = { 'cancelled' : null } |
   { 'pending' : null } |
   { 'completed' : null } |
   { 'confirmed' : null };
+export interface GalleryPhoto {
+  'id' : bigint,
+  'title' : string,
+  'imageUrl' : string,
+  'category' : string,
+  'uploadedAt' : string,
+}
 export interface Payment {
   'id' : bigint,
   'status' : PaymentStatus,
@@ -50,16 +59,16 @@ export interface Service {
   'category' : ServiceCategory,
   'price' : bigint,
 }
-export type ServiceCategory = { 'bridal' : null } |
-  { 'hair' : null } |
+export type ServiceCategory = { 'hair' : null } |
+  { 'skin' : null } |
   { 'nails' : null } |
-  { 'makeup' : null } |
-  { 'facial' : null };
+  { 'makeup' : null };
 export interface UserProfile {
   'id' : Principal,
   'name' : string,
   'role' : UserRole,
   'email' : string,
+  'profilePictureUrl' : string,
   'phone' : string,
 }
 export type UserRole = { 'admin' : null } |
@@ -69,6 +78,7 @@ export type UserRole__1 = { 'admin' : null } |
   { 'guest' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addGalleryPhoto' : ActorMethod<[string, string, string, string], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole__1], undefined>,
   'completePayment' : ActorMethod<[bigint], undefined>,
   'createAppointment' : ActorMethod<[bigint, string, string, string], bigint>,
@@ -77,8 +87,9 @@ export interface _SERVICE {
     [string, ServiceCategory, bigint, bigint, string, string, boolean],
     bigint
   >,
+  'deleteGalleryPhoto' : ActorMethod<[bigint], undefined>,
   'deleteService' : ActorMethod<[bigint], undefined>,
-  'getAdminStats' : ActorMethod<[], AdminStats>,
+  'getAdminStats' : ActorMethod<[string], AdminStats>,
   'getAppointment' : ActorMethod<[bigint], [] | [Appointment]>,
   'getAvailableTimeSlots' : ActorMethod<[string], Array<string>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
@@ -89,9 +100,14 @@ export interface _SERVICE {
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listAllAppointments' : ActorMethod<[], Array<Appointment>>,
+  'listAllUserProfiles' : ActorMethod<[], Array<UserProfile>>,
+  'listGalleryPhotos' : ActorMethod<[], Array<GalleryPhoto>>,
   'listMyAppointments' : ActorMethod<[], Array<Appointment>>,
   'listServices' : ActorMethod<[], Array<Service>>,
-  'saveCallerUserProfile' : ActorMethod<[string, string, string], undefined>,
+  'saveCallerUserProfile' : ActorMethod<
+    [string, string, string, string],
+    undefined
+  >,
   'updateAppointmentStatus' : ActorMethod<
     [bigint, AppointmentStatus],
     undefined

@@ -1,40 +1,52 @@
-# Styloria Beauty Salon App
+# Styloria
 
 ## Current State
-The project has only the base Caffeine scaffold — no backend Motoko code and no application UI exists yet. The previous build attempt failed.
+
+Full-stack beauty salon booking app with:
+- Internet Identity auth + admin local login (styloria/Styloria@1996)
+- Services, bookings, gallery screens with bottom nav
+- Admin panel (dashboard, services, bookings, gallery tabs) accessible via Profile > Admin Panel (admin users only) or via admin-login screen
+- Profile screen with edit, principal ID display, admin badge
+- Backend: services, appointments, payments, userProfiles, galleryPhotos stored in Maps
 
 ## Requested Changes (Diff)
 
 ### Add
-- **User Authentication**: Email/password registration and login (stored in backend), plus Internet Identity (ICP) login. User fields: name, phone, email, password (hashed).
-- **Services catalog**: Backend stores salon services with name, category, price, duration, description, imageUrl. Pre-seeded with Haircut, Hair Spa, Facial, Party Makeup, Bridal Makeup, Nail Art categories (Hair, Makeup, Facial, Nails, Bridal).
-- **Appointment booking**: User selects service, date, time slot, adds notes. Backend creates booking with status (Pending, Confirmed, Completed, Cancelled). Generates unique booking ID.
-- **My Bookings**: View upcoming and past bookings with status.
-- **Profile**: View/edit profile name, phone. View booking history. Logout.
-- **Admin panel**: Admin login (separate role), manage services (CRUD), view all bookings, update booking status, basic revenue stats.
-- **Payment simulation**: Stripe-style payment flow (Razorpay not available on ICP; simulate payment and record payment record with booking).
+
+1. **Registered users list in Admin** - Admin > Users tab showing all registered users (name, email, phone, role) and ability to assign/revoke admin role
+2. **Service image upload** - Admin can upload an image (base64 from device) for each service instead of icon placeholder; services display actual images when available
+3. **Profile picture upload** - Users can upload a profile picture (base64) on their Profile screen; replaces initials avatar
+4. **Dashboard today's bookings & upcoming bookings** - Admin dashboard shows today's count and upcoming count as separate stat cards alongside existing stats
+5. **Notification bell in header** - All logged-in screens show a bell icon in the header that displays a badge count of pending/confirmed upcoming bookings; tapping shows a popover/sheet listing upcoming appointments
+6. **Remove "Access Admin Panel" info card from non-admin profiles** - Non-admin users should not see the Principal ID admin instructions card
+7. **Separate admin route** - Admin panel accessible at dedicated `/admin` path via Owner Admin Login (already exists); make the admin link on login screen more prominent; also add a "Users" tab to admin panel
 
 ### Modify
-- main.tsx: wire up routing and auth context
+
+- Profile screen: Remove the "Admin Access" instructional card shown to non-admin users (the one explaining how to call `assignCallerUserRole`)
+- Admin dashboard: Add "Today" and "Upcoming" booking stat cards
+- Admin panel: Add "Users" tab listing all profiles with role management
+- Service cards: Show actual service image if `imageUrl` is set; admin service form includes image upload via file picker (converted to data URL)
+- Profile avatar: Support uploading a profile picture; store as `profilePictureUrl` field (save via `saveCallerUserProfile` extended or a new field in profile — use existing `saveCallerUserProfile` with new field approach via backend update)
 
 ### Remove
-- Nothing (fresh build)
+
+- Non-admin "Admin Access" instructional card (with principal ID copy and `assignCallerUserRole` instructions) from ProfileScreen
 
 ## Implementation Plan
-1. Select `authorization` component for role-based access (user/admin roles).
-2. Generate Motoko backend with:
-   - User registration/login (email+password, storing hashed password, role: user/admin)
-   - Services CRUD (admin only for create/update/delete, public read)
-   - Appointments: create, list by user, list all (admin), update status
-   - Payment records: create on booking confirmation
-   - Time slots: generate available slots for a given date/service
-3. Build frontend:
-   - Auth screens: Login, Register, Forgot Password (UI only)
-   - Home screen: welcome banner, featured services, categories filter, CTA button, bottom nav
-   - Services screen: grid of services with image, price, duration
-   - Booking flow: service selector → date picker → time slot grid → notes → summary → confirm
-   - Payment screen: order summary → pay button → success screen with booking ID
-   - My Bookings screen: upcoming/past tabs, booking cards with status badge
-   - Profile screen: view/edit form, booking history, logout
-   - Admin screens: login, dashboard, services management, bookings management
-   - Bottom navigation bar: Home, Bookings, Services, Profile
+
+### Backend changes
+1. Add `profilePictureUrl` field to `UserProfile` type
+2. Update `saveCallerUserProfile` to accept `profilePictureUrl` parameter
+3. Add `listAllUserProfiles` query (admin only) returning all registered profiles
+4. Add `todayBookingsCount` and `upcomingBookingsCount` to `AdminStats`
+5. Update `getAdminStats` to compute today/upcoming counts
+
+### Frontend changes
+1. Update `backend.d.ts` to reflect new backend API (new profile fields, new admin functions)
+2. **Profile screen**: Replace initials avatar with uploaded image if available; add camera/upload button overlay; remove admin instructions card for non-admins
+3. **HomeScreen / all main screens**: Add notification bell icon in the gradient header; show badge with count of user's pending+confirmed upcoming appointments; clicking opens a bottom sheet listing appointments
+4. **Admin dashboard**: Add Today and Upcoming stat cards using new `AdminStats` fields
+5. **Admin Services tab**: Add image upload button in Add/Edit service dialogs; display actual image in service cards
+6. **Admin panel**: Add "Users" tab listing all user profiles with role badge; each row has "Make Admin" / "Remove Admin" button (using existing `assignCallerUserRole`)
+7. Keep all existing functionality intact

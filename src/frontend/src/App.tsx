@@ -7,6 +7,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,15 +20,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Bell,
   CalendarDays,
+  Camera,
   Check,
   CheckCircle2,
   ChevronRight,
   Clock,
+  Copy,
   CreditCard,
   DollarSign,
   Edit3,
   Home,
+  Images,
   Loader2,
   LogOut,
   Plus,
@@ -33,18 +43,21 @@ import {
   Star,
   Trash2,
   TrendingUp,
+  Upload,
   User,
+  Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type {
   AdminStats,
   Appointment,
+  GalleryPhoto,
   Service,
   UserProfile,
 } from "./backend.d";
-import { AppointmentStatus, ServiceCategory } from "./backend.d";
+import { AppointmentStatus, ServiceCategory, UserRole__1 } from "./backend.d";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 
@@ -54,6 +67,7 @@ import { useInternetIdentity } from "./hooks/useInternetIdentity";
 type Screen =
   | "login"
   | "register"
+  | "admin-login"
   | "profile-setup"
   | "home"
   | "services"
@@ -62,6 +76,7 @@ type Screen =
   | "payment"
   | "payment-success"
   | "bookings"
+  | "gallery"
   | "profile"
   | "admin";
 
@@ -84,12 +99,14 @@ const getCategoryGradient = (category: ServiceCategory | string): string => {
       return "gradient-hair";
     case ServiceCategory.makeup:
       return "gradient-makeup";
-    case ServiceCategory.facial:
-      return "gradient-facial";
+    case ServiceCategory.skin:
+      return "gradient-skin";
     case ServiceCategory.nails:
       return "gradient-nails";
-    case ServiceCategory.bridal:
+    case "bridal":
       return "gradient-bridal";
+    case "other":
+      return "gradient-facial";
     default:
       return "gradient-pink";
   }
@@ -99,9 +116,10 @@ const getCategoryLabel = (category: ServiceCategory | string): string => {
   const labels: Record<string, string> = {
     hair: "Hair",
     makeup: "Makeup",
-    facial: "Facial",
+    skin: "Skin",
     nails: "Nails",
     bridal: "Bridal",
+    other: "Other",
   };
   return labels[category] ?? String(category);
 };
@@ -150,6 +168,106 @@ const getInitials = (name: string): string =>
     .toUpperCase();
 
 // ─────────────────────────────────────────────────────────────
+// Notification Bell
+// ─────────────────────────────────────────────────────────────
+function NotificationBell({ appointments }: { appointments: Appointment[] }) {
+  const [open, setOpen] = useState(false);
+  const today = new Date().toISOString().split("T")[0];
+
+  const upcoming = appointments.filter(
+    (a) =>
+      a.date >= today &&
+      (a.status === AppointmentStatus.pending ||
+        a.status === AppointmentStatus.confirmed),
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        data-ocid="notifications.open_modal_button"
+        onClick={() => setOpen(true)}
+        className="relative w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+        aria-label="Notifications"
+      >
+        <Bell className="w-4.5 h-4.5" />
+        {upcoming.length > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+            {upcoming.length > 9 ? "9+" : upcoming.length}
+          </span>
+        )}
+      </button>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="bottom"
+          data-ocid="notifications.sheet"
+          className="rounded-t-3xl max-h-[70vh] overflow-y-auto"
+        >
+          <SheetHeader className="pb-3 border-b border-pink-100">
+            <SheetTitle className="font-display text-lg text-foreground flex items-center gap-2">
+              <Bell className="w-4.5 h-4.5 text-primary" />
+              Notifications
+              {upcoming.length > 0 && (
+                <span className="ml-auto text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                  {upcoming.length} upcoming
+                </span>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="pt-4 space-y-3">
+            {upcoming.length === 0 ? (
+              <div
+                data-ocid="notifications.empty_state"
+                className="text-center py-10"
+              >
+                <Bell className="w-10 h-10 text-pink-200 mx-auto mb-3" />
+                <p className="font-semibold text-foreground text-sm">
+                  No upcoming appointments
+                </p>
+                <p className="text-muted-foreground text-xs mt-1">
+                  Book a service to see it here
+                </p>
+              </div>
+            ) : (
+              upcoming.map((appt, i) => (
+                <div
+                  key={String(appt.id)}
+                  data-ocid={`notifications.item.${i + 1}`}
+                  className="bg-pink-50 rounded-2xl p-3 flex items-start gap-3"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-none mt-0.5">
+                    <CalendarDays className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-foreground">
+                      Service #{String(appt.serviceId)}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-muted-foreground">
+                        {appt.date}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {appt.timeSlot}
+                      </span>
+                    </div>
+                  </div>
+                  <span
+                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-full flex-none ${getStatusBadgeClass(appt.status)}`}
+                  >
+                    {appt.status.charAt(0).toUpperCase() + appt.status.slice(1)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Styloria Logo
 // ─────────────────────────────────────────────────────────────
 function StyloriaLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
@@ -180,11 +298,12 @@ function BottomNav({
     { screen: "home" as Screen, icon: Home, label: "Home" },
     { screen: "bookings" as Screen, icon: CalendarDays, label: "Bookings" },
     { screen: "services" as Screen, icon: Scissors, label: "Services" },
+    { screen: "gallery" as Screen, icon: Images, label: "Gallery" },
     { screen: "profile" as Screen, icon: User, label: "Profile" },
   ];
   return (
     <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-pink-200 z-40">
-      <div className="flex items-center justify-around py-2">
+      <div className="flex items-center justify-around py-1.5">
         {items.map(({ screen, icon: Icon, label }) => {
           const active = current === screen;
           return (
@@ -193,21 +312,21 @@ function BottomNav({
               key={screen}
               data-ocid={`nav.${label.toLowerCase()}_link`}
               onClick={() => onNavigate(screen)}
-              className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all ${
+              className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-xl transition-all ${
                 active
                   ? "text-primary"
                   : "text-muted-foreground hover:text-primary/70"
               }`}
             >
               <div
-                className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
                   active ? "bg-pink-100" : ""
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? "stroke-[2.5]" : ""}`} />
+                <Icon className={`w-4 h-4 ${active ? "stroke-[2.5]" : ""}`} />
               </div>
               <span
-                className={`text-[10px] font-medium ${active ? "font-semibold" : ""}`}
+                className={`text-[9px] font-medium ${active ? "font-semibold" : ""}`}
               >
                 {label}
               </span>
@@ -242,10 +361,23 @@ function ServiceCard({
       className="bg-white rounded-2xl card-shadow overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform duration-200 text-left w-full"
       onClick={() => onDetail(service)}
     >
-      <div className={`h-28 ${getCategoryGradient(service.category)} relative`}>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Scissors className="w-8 h-8 text-white/60" />
-        </div>
+      <div
+        className={`h-28 ${service.imageUrl ? "" : getCategoryGradient(service.category)} relative overflow-hidden`}
+      >
+        {service.imageUrl ? (
+          <img
+            src={service.imageUrl}
+            alt={service.name}
+            className="w-full h-28 object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div
+            className={`absolute inset-0 ${getCategoryGradient(service.category)} flex items-center justify-center`}
+          >
+            <Scissors className="w-8 h-8 text-white/60" />
+          </div>
+        )}
         <div className="absolute top-2 right-2">
           <span className="bg-white/20 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
             {getCategoryLabel(service.category)}
@@ -305,11 +437,12 @@ function ServiceCardSkeleton() {
 // LOGIN SCREEN
 // ─────────────────────────────────────────────────────────────
 function LoginScreen({
-  onGoRegister,
-  onLogin,
+  onGoRegister: _onGoRegister,
+  onGoAdmin,
 }: {
   onGoRegister: () => void;
-  onLogin: () => void;
+  onLogin?: () => void;
+  onGoAdmin: () => void;
 }) {
   const { login, isLoggingIn, isInitializing } = useInternetIdentity();
 
@@ -359,34 +492,30 @@ function LoginScreen({
           {isLoggingIn ? "Connecting…" : "Sign in with Internet Identity"}
         </Button>
 
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-muted-foreground text-xs">
-            or continue with
-          </span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        {/* Demo shortcut */}
-        <Button
-          variant="outline"
-          className="w-full h-11 rounded-2xl border-pink-200 text-primary hover:bg-pink-50"
-          onClick={onLogin}
-        >
-          Continue as Guest (Demo)
-        </Button>
-
         <p className="text-center text-sm text-muted-foreground mt-6">
           New here?{" "}
           <button
             type="button"
             data-ocid="auth.register_link"
-            onClick={onGoRegister}
+            onClick={login}
             className="text-primary font-semibold hover:underline"
+            disabled={isLoggingIn || isInitializing}
           >
             Create account
           </button>
         </p>
+
+        <div className="mt-4 pt-4 border-t border-pink-100">
+          <button
+            type="button"
+            data-ocid="auth.admin_login_link"
+            onClick={onGoAdmin}
+            className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+          >
+            <Shield className="w-4 h-4" />
+            Owner Admin Login
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -400,14 +529,13 @@ function RegisterScreen({ onBack }: { onBack: () => void }) {
     name: "",
     phone: "",
     email: "",
-    password: "",
   });
   const { actor } = useActor();
 
   const mutation = useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected");
-      await actor.saveCallerUserProfile(form.name, form.phone, form.email);
+      await actor.saveCallerUserProfile(form.name, form.phone, form.email, "");
     },
     onSuccess: () => {
       toast.success("Account created! Please sign in.");
@@ -431,10 +559,10 @@ function RegisterScreen({ onBack }: { onBack: () => void }) {
 
       <div className="flex-1 bg-background rounded-t-3xl -mt-3 px-6 pt-8 pb-8">
         <h2 className="font-display text-2xl font-bold text-foreground">
-          Create Account
+          Complete Your Profile
         </h2>
         <p className="text-muted-foreground text-sm mt-1 mb-6">
-          Join Styloria for exclusive beauty services
+          Sign in with Internet Identity first, then complete your profile below
         </p>
 
         <div className="space-y-4">
@@ -491,25 +619,6 @@ function RegisterScreen({ onBack }: { onBack: () => void }) {
               className="rounded-xl border-pink-200 focus:ring-primary h-11"
             />
           </div>
-          <div>
-            <label
-              htmlFor="reg-password"
-              className="text-xs font-semibold text-foreground mb-1.5 block"
-            >
-              Password
-            </label>
-            <Input
-              id="reg-password"
-              data-ocid="auth.password_input"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, password: e.target.value }))
-              }
-              className="rounded-xl border-pink-200 focus:ring-primary h-11"
-            />
-          </div>
         </div>
 
         <Button
@@ -523,7 +632,7 @@ function RegisterScreen({ onBack }: { onBack: () => void }) {
           {mutation.isPending ? (
             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
           ) : null}
-          Create Account
+          Save Profile
         </Button>
 
         <p className="text-center text-sm text-muted-foreground mt-5">
@@ -551,7 +660,7 @@ function ProfileSetupScreen({ onComplete }: { onComplete: () => void }) {
   const mutation = useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected");
-      await actor.saveCallerUserProfile(form.name, form.phone, form.email);
+      await actor.saveCallerUserProfile(form.name, form.phone, form.email, "");
     },
     onSuccess: () => {
       toast.success("Profile set up successfully!");
@@ -644,6 +753,125 @@ function ProfileSetupScreen({ onComplete }: { onComplete: () => void }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// ADMIN LOGIN SCREEN
+// ─────────────────────────────────────────────────────────────
+function AdminLoginScreen({
+  onBack,
+  onSuccess,
+}: { onBack: () => void; onSuccess: () => void }) {
+  const [userId, setUserId] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = () => {
+    setLoading(true);
+    setError("");
+    setTimeout(() => {
+      if (userId === "styloria" && password === "Styloria@1996") {
+        onSuccess();
+      } else {
+        setError(
+          "Invalid credentials. Please check your User ID and password.",
+        );
+      }
+      setLoading(false);
+    }, 600);
+  };
+
+  return (
+    <div className="min-h-dvh flex flex-col">
+      <div className="gradient-hero px-6 pt-12 pb-10 flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="self-start text-white/80 hover:text-white"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="w-14 h-14 rounded-2xl bg-charcoal/60 backdrop-blur-sm flex items-center justify-center shadow-lg">
+          <Shield className="w-7 h-7 text-white" />
+        </div>
+        <div className="text-center">
+          <h1 className="font-display text-2xl font-bold text-white">
+            Admin Login
+          </h1>
+          <p className="text-white/70 text-xs mt-1">Styloria Owner Access</p>
+        </div>
+      </div>
+
+      <div className="flex-1 bg-background rounded-t-3xl -mt-4 px-6 pt-8 pb-8">
+        <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="admin-userid"
+              className="text-xs font-semibold text-foreground mb-1.5 block"
+            >
+              User ID
+            </label>
+            <Input
+              id="admin-userid"
+              data-ocid="admin-login.userid_input"
+              placeholder="styloria"
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="rounded-xl border-pink-200 h-11"
+              autoCapitalize="none"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="admin-password"
+              className="text-xs font-semibold text-foreground mb-1.5 block"
+            >
+              Password
+            </label>
+            <Input
+              id="admin-password"
+              data-ocid="admin-login.password_input"
+              type="password"
+              placeholder="••••••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleLogin();
+              }}
+              className="rounded-xl border-pink-200 h-11"
+            />
+          </div>
+          {error && (
+            <div
+              data-ocid="admin-login.error_state"
+              className="bg-destructive/10 text-destructive text-xs rounded-xl px-3 py-2"
+            >
+              {error}
+            </div>
+          )}
+        </div>
+
+        <Button
+          data-ocid="admin-login.submit_button"
+          className="w-full h-12 mt-6 text-base font-semibold bg-charcoal hover:bg-charcoal/90 text-white rounded-2xl"
+          onClick={handleLogin}
+          disabled={loading || !userId || !password}
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+          ) : (
+            <Shield className="w-5 h-5 mr-2" />
+          )}
+          {loading ? "Verifying…" : "Access Admin Panel"}
+        </Button>
+
+        <p className="text-center text-[11px] text-muted-foreground mt-5">
+          This login is for salon owners only
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // HOME SCREEN
 // ─────────────────────────────────────────────────────────────
 function HomeScreen({
@@ -651,11 +879,13 @@ function HomeScreen({
   onNavigate,
   onBookService,
   onServiceDetail,
+  appointments,
 }: {
   profile: UserProfile | null;
   onNavigate: (s: Screen) => void;
   onBookService: (s: Service) => void;
   onServiceDetail: (s: Service) => void;
+  appointments: Appointment[];
 }) {
   const { actor, isFetching } = useActor();
   const [activeCategory, setActiveCategory] = useState<string>("all");
@@ -673,9 +903,8 @@ function HomeScreen({
     { id: "all", label: "All" },
     { id: ServiceCategory.hair, label: "Hair" },
     { id: ServiceCategory.makeup, label: "Makeup" },
-    { id: ServiceCategory.facial, label: "Facial" },
+    { id: ServiceCategory.skin, label: "Skin" },
     { id: ServiceCategory.nails, label: "Nails" },
-    { id: ServiceCategory.bridal, label: "Bridal" },
   ];
 
   const filtered =
@@ -696,7 +925,10 @@ function HomeScreen({
               {displayName}
             </h1>
           </div>
-          <StyloriaLogo size="sm" />
+          <div className="flex items-center gap-2">
+            <NotificationBell appointments={appointments} />
+            <StyloriaLogo size="sm" />
+          </div>
         </div>
       </div>
 
@@ -720,7 +952,7 @@ function HomeScreen({
               Book Now
             </Button>
           </div>
-          <div className="w-20 h-20 rounded-2xl gradient-bridal flex items-center justify-center shadow-card">
+          <div className="w-20 h-20 rounded-2xl gradient-pink flex items-center justify-center shadow-card">
             <Sparkles className="w-10 h-10 text-white" />
           </div>
         </div>
@@ -804,9 +1036,11 @@ function HomeScreen({
 function ServicesScreen({
   onBookService,
   onServiceDetail,
+  appointments,
 }: {
   onBookService: (s: Service) => void;
   onServiceDetail: (s: Service) => void;
+  appointments: Appointment[];
 }) {
   const { actor, isFetching } = useActor();
   const [activeCategory, setActiveCategory] = useState<string>("all");
@@ -824,9 +1058,8 @@ function ServicesScreen({
     { id: "all", label: "All" },
     { id: ServiceCategory.hair, label: "Hair" },
     { id: ServiceCategory.makeup, label: "Makeup" },
-    { id: ServiceCategory.facial, label: "Facial" },
+    { id: ServiceCategory.skin, label: "Skin" },
     { id: ServiceCategory.nails, label: "Nails" },
-    { id: ServiceCategory.bridal, label: "Bridal" },
   ];
 
   const filtered =
@@ -838,12 +1071,17 @@ function ServicesScreen({
     <div className="pb-24 animate-fade-in">
       {/* Header */}
       <div className="gradient-hero px-5 pt-10 pb-8">
-        <h1 className="font-display text-2xl font-bold text-white">
-          Our Services
-        </h1>
-        <p className="text-white/70 text-xs mt-1">
-          Discover premium beauty treatments
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-white">
+              Our Services
+            </h1>
+            <p className="text-white/70 text-xs mt-1">
+              Discover premium beauty treatments
+            </p>
+          </div>
+          <NotificationBell appointments={appointments} />
+        </div>
       </div>
 
       <div className="px-4 -mt-2">
@@ -1169,10 +1407,12 @@ function PaymentScreen({
   booking,
   onBack,
   onSuccess,
+  profile,
 }: {
   booking: BookingState;
   onBack: () => void;
   onSuccess: (appointmentId: bigint, bookingId: string) => void;
+  profile: UserProfile | null;
 }) {
   const { actor } = useActor();
   const [processing, setProcessing] = useState(false);
@@ -1283,7 +1523,9 @@ function PaymentScreen({
             <div className="flex justify-between mt-3">
               <div>
                 <p className="text-white/60 text-[10px]">CARD HOLDER</p>
-                <p className="text-sm font-semibold">Guest User</p>
+                <p className="text-sm font-semibold">
+                  {profile?.name ?? "Card Holder"}
+                </p>
               </div>
               <div>
                 <p className="text-white/60 text-[10px]">EXPIRES</p>
@@ -1378,10 +1620,18 @@ function PaymentSuccessScreen({
 // ─────────────────────────────────────────────────────────────
 // BOOKINGS SCREEN
 // ─────────────────────────────────────────────────────────────
-function BookingsScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
+function BookingsScreen({
+  onNavigate,
+  appointments: appointmentsProp,
+}: {
+  onNavigate: (s: Screen) => void;
+  appointments: Appointment[];
+}) {
   const { actor, isFetching } = useActor();
 
-  const { data: appointments = [], isLoading } = useQuery<Appointment[]>({
+  const { data: appointments = appointmentsProp, isLoading } = useQuery<
+    Appointment[]
+  >({
     queryKey: ["my-appointments"],
     queryFn: async () => {
       if (!actor) return [];
@@ -1471,10 +1721,29 @@ function BookingsScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
   return (
     <div className="pb-24 animate-fade-in">
       <div className="gradient-hero px-5 pt-10 pb-8">
-        <h1 className="font-display text-2xl font-bold text-white">
-          My Bookings
-        </h1>
-        <p className="text-white/70 text-xs mt-1">Track your appointments</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-white">
+              My Bookings
+            </h1>
+            <p className="text-white/70 text-xs mt-1">
+              Track your appointments
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <NotificationBell appointments={appointments} />
+            <Button
+              data-ocid="bookings.book_button"
+              size="sm"
+              variant="outline"
+              className="border-white/40 text-white bg-white/10 hover:bg-white/20 hover:text-white rounded-full text-xs h-8 px-3"
+              onClick={() => onNavigate("services")}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Book Another
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="px-4 mt-4">
@@ -1549,19 +1818,28 @@ function ProfileScreen({
   onNavigate,
   onLogout,
   isAdmin,
+  appointments,
 }: {
   profile: UserProfile | null;
   onNavigate: (s: Screen) => void;
   onLogout: () => void;
   isAdmin: boolean;
+  appointments: Appointment[];
 }) {
   const { actor } = useActor();
+  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     name: profile?.name ?? "",
     phone: profile?.phone ?? "",
   });
+  const picInputRef = useRef<HTMLInputElement>(null);
+
+  const principalId = identity?.getPrincipal().toString() ?? null;
+  const truncatedPrincipal = principalId
+    ? `${principalId.slice(0, 10)}...${principalId.slice(-6)}`
+    : null;
 
   useEffect(() => {
     setForm({ name: profile?.name ?? "", phone: profile?.phone ?? "" });
@@ -1574,6 +1852,7 @@ function ProfileScreen({
         form.name,
         form.phone,
         profile?.email ?? "",
+        profile?.profilePictureUrl ?? "",
       );
     },
     onSuccess: () => {
@@ -1584,22 +1863,87 @@ function ProfileScreen({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const picMutation = useMutation({
+    mutationFn: async (dataUrl: string) => {
+      if (!actor) throw new Error("Not connected");
+      await actor.saveCallerUserProfile(
+        profile?.name ?? "",
+        profile?.phone ?? "",
+        profile?.email ?? "",
+        dataUrl,
+      );
+    },
+    onSuccess: () => {
+      toast.success("Profile picture updated!");
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const handlePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      picMutation.mutate(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const initials = getInitials(profile?.name ?? "G");
 
   return (
     <div className="pb-24 animate-fade-in">
       {/* Header */}
       <div className="gradient-hero px-5 pt-10 pb-14">
-        <h1 className="font-display text-2xl font-bold text-white">Profile</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="font-display text-2xl font-bold text-white">
+            Profile
+          </h1>
+          <NotificationBell appointments={appointments} />
+        </div>
       </div>
 
       {/* Avatar card */}
       <div className="px-4 -mt-8">
         <div className="bg-white rounded-3xl card-shadow-lg p-5 flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-full gradient-pink flex items-center justify-center shadow-pink-lg">
-            <span className="font-display font-bold text-white text-2xl">
-              {initials}
-            </span>
+          <div className="relative">
+            {profile?.profilePictureUrl ? (
+              <img
+                src={profile.profilePictureUrl}
+                alt={profile.name}
+                className="w-20 h-20 rounded-full object-cover shadow-pink-lg"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full gradient-pink flex items-center justify-center shadow-pink-lg">
+                <span className="font-display font-bold text-white text-2xl">
+                  {initials}
+                </span>
+              </div>
+            )}
+            {/* Camera overlay */}
+            <button
+              type="button"
+              data-ocid="profile.upload_button"
+              onClick={() => picInputRef.current?.click()}
+              disabled={picMutation.isPending}
+              className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-md hover:bg-primary/90 transition-colors"
+              title="Change profile picture"
+            >
+              {picMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+              ) : (
+                <Camera className="w-3.5 h-3.5 text-white" />
+              )}
+            </button>
+            <input
+              ref={picInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePicChange}
+            />
           </div>
           <div className="text-center">
             <h2 className="font-display font-bold text-foreground text-xl">
@@ -1707,6 +2051,32 @@ function ProfileScreen({
                   </span>
                 </div>
               ))}
+              {principalId && (
+                <div className="flex items-center justify-between pt-1 border-t border-pink-100">
+                  <span className="text-xs text-muted-foreground">
+                    Principal ID
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      data-ocid="profile.principal_id"
+                      className="text-xs font-mono text-foreground"
+                    >
+                      {truncatedPrincipal}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(principalId);
+                        toast.success("Principal ID copied!");
+                      }}
+                      className="w-6 h-6 rounded-lg bg-pink-50 flex items-center justify-center hover:bg-pink-100 transition-colors"
+                      title="Copy Principal ID"
+                    >
+                      <Copy className="w-3 h-3 text-primary" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1777,7 +2147,8 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
     queryKey: ["admin-stats"],
     queryFn: async () => {
       if (!actor) throw new Error("No actor");
-      return actor.getAdminStats();
+      const todayDate = new Date().toISOString().split("T")[0];
+      return actor.getAdminStats(todayDate);
     },
     enabled: !!actor && !isFetching,
   });
@@ -1830,15 +2201,155 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Users (admin)
+  const { data: allUsers = [], isLoading: loadingUsers } = useQuery<
+    UserProfile[]
+  >({
+    queryKey: ["all-users"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listAllUserProfiles();
+    },
+    enabled: !!actor && !isFetching,
+  });
+
+  const assignRoleMutation = useMutation({
+    mutationFn: async ({
+      userId,
+      role,
+    }: { userId: string; role: UserRole__1 }) => {
+      if (!actor) throw new Error("No actor");
+      const { Principal } = await import("@icp-sdk/core/principal");
+      await actor.assignCallerUserRole(Principal.fromText(userId), role);
+    },
+    onSuccess: () => {
+      toast.success("Role updated!");
+      queryClient.invalidateQueries({ queryKey: ["all-users"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // Add service dialog
   const [showAddService, setShowAddService] = useState(false);
   const [newService, setNewService] = useState({
     name: "",
-    category: ServiceCategory.hair,
+    category: ServiceCategory.hair as string,
     price: "",
     durationMinutes: "",
     description: "",
     imageUrl: "",
+  });
+  const newServiceImgRef = useRef<HTMLInputElement>(null);
+
+  // Edit service state
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editServiceForm, setEditServiceForm] = useState({
+    name: "",
+    category: ServiceCategory.hair as string,
+    price: "",
+    durationMinutes: "",
+    description: "",
+    imageUrl: "",
+  });
+  const editServiceImgRef = useRef<HTMLInputElement>(null);
+
+  const editServiceMutation = useMutation({
+    mutationFn: async () => {
+      if (!actor || !editingService) throw new Error("No actor");
+      await actor.updateService(
+        editingService.id,
+        editServiceForm.name,
+        editServiceForm.category as ServiceCategory,
+        BigInt(Number(editServiceForm.price)),
+        BigInt(Number(editServiceForm.durationMinutes)),
+        editServiceForm.description,
+        editServiceForm.imageUrl,
+        true,
+      );
+    },
+    onSuccess: () => {
+      toast.success("Service updated!");
+      setEditingService(null);
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Gallery state
+  const { data: galleryPhotos = [], isLoading: loadingGallery } = useQuery<
+    GalleryPhoto[]
+  >({
+    queryKey: ["gallery-photos"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listGalleryPhotos();
+    },
+    enabled: !!actor && !isFetching,
+  });
+
+  const [showAddPhoto, setShowAddPhoto] = useState(false);
+  const [newPhoto, setNewPhoto] = useState({
+    title: "",
+    category: "hair",
+    imageUrl: "",
+  });
+
+  // Edit gallery photo state
+  const [editingPhoto, setEditingPhoto] = useState<GalleryPhoto | null>(null);
+  const [editPhotoForm, setEditPhotoForm] = useState({
+    title: "",
+    category: "hair",
+    imageUrl: "",
+  });
+
+  const addPhotoMutation = useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("No actor");
+      await actor.addGalleryPhoto(
+        newPhoto.title,
+        newPhoto.category,
+        newPhoto.imageUrl,
+        new Date().toISOString(),
+      );
+    },
+    onSuccess: () => {
+      toast.success("Photo added!");
+      setShowAddPhoto(false);
+      setNewPhoto({ title: "", category: "hair", imageUrl: "" });
+      queryClient.invalidateQueries({ queryKey: ["gallery-photos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deletePhotoMutation = useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("No actor");
+      await actor.deleteGalleryPhoto(id);
+    },
+    onSuccess: () => {
+      toast.success("Photo deleted");
+      queryClient.invalidateQueries({ queryKey: ["gallery-photos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const editPhotoMutation = useMutation({
+    mutationFn: async () => {
+      if (!actor || !editingPhoto) throw new Error("No actor");
+      await actor.deleteGalleryPhoto(editingPhoto.id);
+      await actor.addGalleryPhoto(
+        editPhotoForm.title,
+        editPhotoForm.category,
+        editPhotoForm.imageUrl,
+        new Date().toISOString(),
+      );
+    },
+    onSuccess: () => {
+      toast.success("Photo updated!");
+      setEditingPhoto(null);
+      queryClient.invalidateQueries({ queryKey: ["gallery-photos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const addServiceMutation = useMutation({
@@ -1846,7 +2357,7 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
       if (!actor) throw new Error("No actor");
       await actor.createService(
         newService.name,
-        newService.category,
+        newService.category as ServiceCategory,
         BigInt(Number(newService.price)),
         BigInt(Number(newService.durationMinutes)),
         newService.description,
@@ -1896,6 +2407,18 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
           icon: CheckCircle2,
           color: "bg-blue-100 text-blue-700",
         },
+        {
+          label: "Today's Bookings",
+          value: String(stats.todayBookingsCount),
+          icon: CalendarDays,
+          color: "bg-emerald-100 text-emerald-700",
+        },
+        {
+          label: "Upcoming",
+          value: String(stats.upcomingBookingsCount),
+          icon: TrendingUp,
+          color: "bg-purple-100 text-purple-700",
+        },
       ]
     : [];
 
@@ -1926,23 +2449,37 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
             <TabsTrigger
               data-ocid="admin.dashboard_tab"
               value="dashboard"
-              className="flex-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-pink rounded-xl"
+              className="flex-1 text-[11px] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-pink rounded-xl"
             >
               Dashboard
             </TabsTrigger>
             <TabsTrigger
               data-ocid="admin.services_tab"
               value="services"
-              className="flex-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-pink rounded-xl"
+              className="flex-1 text-[11px] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-pink rounded-xl"
             >
               Services
             </TabsTrigger>
             <TabsTrigger
               data-ocid="admin.bookings_tab"
               value="bookings"
-              className="flex-1 text-xs data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-pink rounded-xl"
+              className="flex-1 text-[11px] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-pink rounded-xl"
             >
               Bookings
+            </TabsTrigger>
+            <TabsTrigger
+              data-ocid="admin.gallery_tab"
+              value="gallery"
+              className="flex-1 text-[11px] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-pink rounded-xl"
+            >
+              Gallery
+            </TabsTrigger>
+            <TabsTrigger
+              data-ocid="admin.users_tab"
+              value="users"
+              className="flex-1 text-[11px] data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-pink rounded-xl"
+            >
+              Users
             </TabsTrigger>
           </TabsList>
 
@@ -2060,11 +2597,19 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
                     data-ocid={`admin.service.item.${i + 1}`}
                     className="bg-white rounded-2xl p-4 card-shadow flex items-center gap-3"
                   >
-                    <div
-                      className={`w-10 h-10 rounded-xl ${getCategoryGradient(svc.category)} flex items-center justify-center flex-none`}
-                    >
-                      <Scissors className="w-4 h-4 text-white" />
-                    </div>
+                    {svc.imageUrl ? (
+                      <img
+                        src={svc.imageUrl}
+                        alt={svc.name}
+                        className="w-10 h-10 rounded-xl object-cover flex-none"
+                      />
+                    ) : (
+                      <div
+                        className={`w-10 h-10 rounded-xl ${getCategoryGradient(svc.category)} flex items-center justify-center flex-none`}
+                      >
+                        <Scissors className="w-4 h-4 text-white" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm text-foreground truncate">
                         {svc.name}
@@ -2074,6 +2619,24 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
                         {formatDuration(svc.durationMinutes)}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      data-ocid={`admin.service.edit_button.${i + 1}`}
+                      onClick={() => {
+                        setEditingService(svc);
+                        setEditServiceForm({
+                          name: svc.name,
+                          category: svc.category as string,
+                          price: String(Number(svc.price)),
+                          durationMinutes: String(Number(svc.durationMinutes)),
+                          description: svc.description,
+                          imageUrl: svc.imageUrl,
+                        });
+                      }}
+                      className="w-8 h-8 rounded-xl bg-pink-100 flex items-center justify-center text-primary hover:bg-pink-200 flex-none mr-1"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
                     <button
                       type="button"
                       data-ocid={`admin.service.delete_button.${i + 1}`}
@@ -2086,6 +2649,200 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
                 ))}
               </div>
             )}
+
+            {/* Edit Service Dialog */}
+            <Dialog
+              open={!!editingService}
+              onOpenChange={(open) => {
+                if (!open) setEditingService(null);
+              }}
+            >
+              <DialogContent className="max-w-sm mx-auto rounded-3xl">
+                <DialogHeader>
+                  <DialogTitle className="font-display">
+                    Edit Service
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 mt-2">
+                  <div>
+                    <label
+                      htmlFor="edit-svc-name"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Service Name
+                    </label>
+                    <Input
+                      id="edit-svc-name"
+                      value={editServiceForm.name}
+                      onChange={(e) =>
+                        setEditServiceForm((p) => ({
+                          ...p,
+                          name: e.target.value,
+                        }))
+                      }
+                      className="rounded-xl border-pink-200 h-10"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="edit-svc-category"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Category
+                    </label>
+                    <select
+                      id="edit-svc-category"
+                      value={editServiceForm.category}
+                      onChange={(e) =>
+                        setEditServiceForm((p) => ({
+                          ...p,
+                          category: e.target.value,
+                        }))
+                      }
+                      className="w-full h-10 px-3 rounded-xl border border-pink-200 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="hair">Hair</option>
+                      <option value="makeup">Makeup</option>
+                      <option value="skin">Skin</option>
+                      <option value="nails">Nails</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        htmlFor="edit-svc-price"
+                        className="text-xs font-semibold block mb-1"
+                      >
+                        Price (₹)
+                      </label>
+                      <Input
+                        id="edit-svc-price"
+                        type="number"
+                        value={editServiceForm.price}
+                        onChange={(e) =>
+                          setEditServiceForm((p) => ({
+                            ...p,
+                            price: e.target.value,
+                          }))
+                        }
+                        className="rounded-xl border-pink-200 h-10"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="edit-svc-duration"
+                        className="text-xs font-semibold block mb-1"
+                      >
+                        Duration (min)
+                      </label>
+                      <Input
+                        id="edit-svc-duration"
+                        type="number"
+                        value={editServiceForm.durationMinutes}
+                        onChange={(e) =>
+                          setEditServiceForm((p) => ({
+                            ...p,
+                            durationMinutes: e.target.value,
+                          }))
+                        }
+                        className="rounded-xl border-pink-200 h-10"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="edit-svc-desc"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Description
+                    </label>
+                    <Textarea
+                      id="edit-svc-desc"
+                      value={editServiceForm.description}
+                      onChange={(e) =>
+                        setEditServiceForm((p) => ({
+                          ...p,
+                          description: e.target.value,
+                        }))
+                      }
+                      className="rounded-xl border-pink-200 resize-none"
+                      rows={2}
+                    />
+                  </div>
+                  {/* Image upload */}
+                  <div>
+                    <label
+                      htmlFor="edit-svc-img"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Service Image
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        data-ocid="admin.service.upload_button"
+                        size="sm"
+                        variant="outline"
+                        className="h-9 text-xs rounded-xl border-pink-200"
+                        onClick={() => editServiceImgRef.current?.click()}
+                      >
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
+                        Upload Image
+                      </Button>
+                      {editServiceForm.imageUrl && (
+                        <img
+                          src={editServiceForm.imageUrl}
+                          alt="preview"
+                          className="w-9 h-9 rounded-xl object-cover border border-pink-200"
+                        />
+                      )}
+                    </div>
+                    <input
+                      id="edit-svc-img"
+                      ref={editServiceImgRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          setEditServiceForm((p) => ({
+                            ...p,
+                            imageUrl: reader.result as string,
+                          }));
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    className="flex-1 h-10 bg-primary text-white rounded-xl shadow-pink text-sm"
+                    onClick={() => editServiceMutation.mutate()}
+                    disabled={
+                      editServiceMutation.isPending ||
+                      !editServiceForm.name ||
+                      !editServiceForm.price
+                    }
+                  >
+                    {editServiceMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-10 rounded-xl border-pink-200 text-sm"
+                    onClick={() => setEditingService(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Add Service Dialog */}
             <Dialog open={showAddService} onOpenChange={setShowAddService}>
@@ -2126,16 +2883,15 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
                       onChange={(e) =>
                         setNewService((p) => ({
                           ...p,
-                          category: e.target.value as ServiceCategory,
+                          category: e.target.value,
                         }))
                       }
                       className="w-full h-10 px-3 rounded-xl border border-pink-200 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      {Object.values(ServiceCategory).map((c) => (
-                        <option key={c} value={c}>
-                          {getCategoryLabel(c)}
-                        </option>
-                      ))}
+                      <option value="hair">Hair</option>
+                      <option value="makeup">Makeup</option>
+                      <option value="skin">Skin</option>
+                      <option value="nails">Nails</option>
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -2201,6 +2957,53 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
                       }
                       className="rounded-xl border-pink-200 resize-none"
                       rows={2}
+                    />
+                  </div>
+                  {/* Image upload */}
+                  <div>
+                    <label
+                      htmlFor="new-svc-img"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Service Image
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        data-ocid="admin.new_service.upload_button"
+                        size="sm"
+                        variant="outline"
+                        className="h-9 text-xs rounded-xl border-pink-200"
+                        onClick={() => newServiceImgRef.current?.click()}
+                      >
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
+                        Upload Image
+                      </Button>
+                      {newService.imageUrl && (
+                        <img
+                          src={newService.imageUrl}
+                          alt="preview"
+                          className="w-9 h-9 rounded-xl object-cover border border-pink-200"
+                        />
+                      )}
+                    </div>
+                    <input
+                      id="new-svc-img"
+                      ref={newServiceImgRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          setNewService((p) => ({
+                            ...p,
+                            imageUrl: reader.result as string,
+                          }));
+                        reader.readAsDataURL(file);
+                      }}
                     />
                   </div>
                 </div>
@@ -2304,8 +3107,706 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
               </div>
             )}
           </TabsContent>
+
+          {/* ── Gallery ── */}
+          <TabsContent value="gallery" className="px-4 pt-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-bold text-foreground">
+                Gallery
+              </h3>
+              <Button
+                size="sm"
+                data-ocid="admin.gallery.add_button"
+                className="h-8 text-xs bg-primary text-white rounded-full shadow-pink"
+                onClick={() => setShowAddPhoto(true)}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Photo
+              </Button>
+            </div>
+
+            {loadingGallery ? (
+              <div
+                className="grid grid-cols-2 gap-3"
+                data-ocid="admin.gallery.loading_state"
+              >
+                {[1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-36 rounded-2xl shimmer" />
+                ))}
+              </div>
+            ) : galleryPhotos.length === 0 ? (
+              <div
+                className="text-center py-10"
+                data-ocid="admin.gallery.empty_state"
+              >
+                <Camera className="w-10 h-10 text-pink-200 mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm">No photos yet</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {galleryPhotos.map((photo, i) => (
+                  <div
+                    key={String(photo.id)}
+                    data-ocid={`admin.gallery.item.${i + 1}`}
+                    className="bg-white rounded-2xl card-shadow overflow-hidden relative"
+                  >
+                    {photo.imageUrl ? (
+                      <img
+                        src={photo.imageUrl}
+                        alt={photo.title}
+                        className="w-full h-28 object-cover"
+                      />
+                    ) : (
+                      <div
+                        className={`w-full h-28 ${getCategoryGradient(photo.category)} flex items-center justify-center`}
+                      >
+                        <Camera className="w-8 h-8 text-white/60" />
+                      </div>
+                    )}
+                    <div className="p-2.5">
+                      <p className="font-semibold text-xs text-foreground line-clamp-1">
+                        {photo.title}
+                      </p>
+                      <span className="text-[10px] text-primary font-medium">
+                        {getCategoryLabel(photo.category)}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      data-ocid={`admin.gallery.edit_button.${i + 1}`}
+                      onClick={() => {
+                        setEditingPhoto(photo);
+                        setEditPhotoForm({
+                          title: photo.title,
+                          category: photo.category,
+                          imageUrl: photo.imageUrl,
+                        });
+                      }}
+                      className="absolute top-2 left-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-primary/80 transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      data-ocid={`admin.gallery.delete_button.${i + 1}`}
+                      onClick={() => deletePhotoMutation.mutate(photo.id)}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-destructive/80 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Edit Photo Dialog */}
+            <Dialog
+              open={!!editingPhoto}
+              onOpenChange={(open) => {
+                if (!open) setEditingPhoto(null);
+              }}
+            >
+              <DialogContent className="max-w-sm mx-auto rounded-3xl">
+                <DialogHeader>
+                  <DialogTitle className="font-display">Edit Photo</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 mt-2">
+                  <div>
+                    <label
+                      htmlFor="ep-title"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Title
+                    </label>
+                    <Input
+                      id="ep-title"
+                      value={editPhotoForm.title}
+                      onChange={(e) =>
+                        setEditPhotoForm((p) => ({
+                          ...p,
+                          title: e.target.value,
+                        }))
+                      }
+                      className="rounded-xl border-pink-200 h-10"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ep-category"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Category
+                    </label>
+                    <select
+                      id="ep-category"
+                      value={editPhotoForm.category}
+                      onChange={(e) =>
+                        setEditPhotoForm((p) => ({
+                          ...p,
+                          category: e.target.value,
+                        }))
+                      }
+                      className="w-full h-10 px-3 rounded-xl border border-pink-200 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="hair">Hair</option>
+                      <option value="makeup">Makeup</option>
+                      <option value="skin">Skin</option>
+                      <option value="nails">Nails</option>
+                      <option value="bridal">Bridal</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="ep-url"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Image URL
+                    </label>
+                    <Input
+                      id="ep-url"
+                      value={editPhotoForm.imageUrl}
+                      onChange={(e) =>
+                        setEditPhotoForm((p) => ({
+                          ...p,
+                          imageUrl: e.target.value,
+                        }))
+                      }
+                      className="rounded-xl border-pink-200 h-10"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    className="flex-1 h-10 bg-primary text-white rounded-xl shadow-pink text-sm"
+                    onClick={() => editPhotoMutation.mutate()}
+                    disabled={
+                      editPhotoMutation.isPending || !editPhotoForm.title
+                    }
+                  >
+                    {editPhotoMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-10 rounded-xl border-pink-200 text-sm"
+                    onClick={() => setEditingPhoto(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Add Photo Dialog */}
+            <Dialog open={showAddPhoto} onOpenChange={setShowAddPhoto}>
+              <DialogContent className="max-w-sm mx-auto rounded-3xl">
+                <DialogHeader>
+                  <DialogTitle className="font-display">
+                    Add Gallery Photo
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 mt-2">
+                  <div>
+                    <label
+                      htmlFor="photo-title"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Title
+                    </label>
+                    <Input
+                      id="photo-title"
+                      placeholder="e.g. Bridal Hair Styling"
+                      value={newPhoto.title}
+                      onChange={(e) =>
+                        setNewPhoto((p) => ({ ...p, title: e.target.value }))
+                      }
+                      className="rounded-xl border-pink-200 h-10"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="photo-category"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Category
+                    </label>
+                    <select
+                      id="photo-category"
+                      value={newPhoto.category}
+                      onChange={(e) =>
+                        setNewPhoto((p) => ({ ...p, category: e.target.value }))
+                      }
+                      className="w-full h-10 px-3 rounded-xl border border-pink-200 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="hair">Hair</option>
+                      <option value="makeup">Makeup</option>
+                      <option value="skin">Skin</option>
+                      <option value="nails">Nails</option>
+                      <option value="bridal">Bridal</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="photo-url"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      Image URL
+                    </label>
+                    <Input
+                      id="photo-url"
+                      placeholder="https://example.com/photo.jpg"
+                      value={newPhoto.imageUrl}
+                      onChange={(e) =>
+                        setNewPhoto((p) => ({ ...p, imageUrl: e.target.value }))
+                      }
+                      className="rounded-xl border-pink-200 h-10"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Paste a direct image URL
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    className="flex-1 h-10 bg-primary text-white rounded-xl shadow-pink text-sm"
+                    onClick={() => addPhotoMutation.mutate()}
+                    disabled={addPhotoMutation.isPending || !newPhoto.title}
+                  >
+                    {addPhotoMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Add Photo"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-10 rounded-xl border-pink-200 text-sm"
+                    onClick={() => setShowAddPhoto(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+
+          {/* ── Users ── */}
+          <TabsContent value="users" className="px-4 pt-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-bold text-foreground">
+                Registered Users
+              </h3>
+              <button
+                type="button"
+                onClick={() =>
+                  queryClient.invalidateQueries({ queryKey: ["all-users"] })
+                }
+                className="text-primary"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+
+            {loadingUsers ? (
+              <div className="space-y-3" data-ocid="admin.users.loading_state">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-20 rounded-2xl shimmer" />
+                ))}
+              </div>
+            ) : allUsers.length === 0 ? (
+              <div
+                className="text-center py-10"
+                data-ocid="admin.users.empty_state"
+              >
+                <Users className="w-10 h-10 text-pink-200 mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm">
+                  No registered users yet
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {allUsers.map((u, i) => (
+                  <div
+                    key={String(u.id)}
+                    data-ocid={`admin.user.item.${i + 1}`}
+                    className="bg-white rounded-2xl p-4 card-shadow flex items-center gap-3"
+                  >
+                    {/* Avatar */}
+                    {u.profilePictureUrl ? (
+                      <img
+                        src={u.profilePictureUrl}
+                        alt={u.name}
+                        className="w-10 h-10 rounded-full object-cover flex-none"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full gradient-pink flex items-center justify-center flex-none">
+                        <span className="text-white text-xs font-bold">
+                          {getInitials(u.name || "G")}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-foreground truncate">
+                        {u.name || "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {u.email || u.phone || "No contact info"}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 flex-none">
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          u.role === "admin"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {u.role}
+                      </span>
+                      {u.role === "admin" ? (
+                        <button
+                          type="button"
+                          data-ocid={`admin.user.secondary_button.${i + 1}`}
+                          onClick={() =>
+                            assignRoleMutation.mutate({
+                              userId: u.id.toString(),
+                              role: UserRole__1.user,
+                            })
+                          }
+                          disabled={assignRoleMutation.isPending}
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                        >
+                          Remove Admin
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          data-ocid={`admin.user.primary_button.${i + 1}`}
+                          onClick={() =>
+                            assignRoleMutation.mutate({
+                              userId: u.id.toString(),
+                              role: UserRole__1.admin,
+                            })
+                          }
+                          disabled={assignRoleMutation.isPending}
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                        >
+                          Make Admin
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// GALLERY SCREEN
+// ─────────────────────────────────────────────────────────────
+const GALLERY_CATEGORIES = [
+  { id: "all", label: "All" },
+  { id: "hair", label: "Hair" },
+  { id: "makeup", label: "Makeup" },
+  { id: "skin", label: "Skin" },
+  { id: "nails", label: "Nails" },
+  { id: "bridal", label: "Bridal" },
+  { id: "other", label: "Other" },
+];
+
+function GalleryScreen({
+  isAdmin,
+  onNavigate: _onNavigate,
+  appointments,
+}: {
+  isAdmin: boolean;
+  onNavigate: (s: Screen) => void;
+  appointments: Appointment[];
+}) {
+  const { actor, isFetching } = useActor();
+  const queryClient = useQueryClient();
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [showAddPhoto, setShowAddPhoto] = useState(false);
+  const [newPhoto, setNewPhoto] = useState({
+    title: "",
+    category: "hair",
+    imageUrl: "",
+  });
+
+  const { data: photos = [], isLoading } = useQuery<GalleryPhoto[]>({
+    queryKey: ["gallery-photos"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listGalleryPhotos();
+    },
+    enabled: !!actor && !isFetching,
+  });
+
+  const addPhotoMutation = useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("No actor");
+      await actor.addGalleryPhoto(
+        newPhoto.title,
+        newPhoto.category,
+        newPhoto.imageUrl,
+        new Date().toISOString(),
+      );
+    },
+    onSuccess: () => {
+      toast.success("Photo added to gallery!");
+      setShowAddPhoto(false);
+      setNewPhoto({ title: "", category: "hair", imageUrl: "" });
+      queryClient.invalidateQueries({ queryKey: ["gallery-photos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deletePhotoMutation = useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("No actor");
+      await actor.deleteGalleryPhoto(id);
+    },
+    onSuccess: () => {
+      toast.success("Photo removed");
+      queryClient.invalidateQueries({ queryKey: ["gallery-photos"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const filtered =
+    activeCategory === "all"
+      ? photos
+      : photos.filter((p) => p.category === activeCategory);
+
+  return (
+    <div className="pb-24 animate-fade-in">
+      {/* Header */}
+      <div className="gradient-hero px-5 pt-10 pb-8">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-white">
+              Gallery
+            </h1>
+            <p className="text-white/70 text-xs mt-1">
+              Client transformations &amp; styles
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <NotificationBell appointments={appointments} />
+            {isAdmin && (
+              <Button
+                data-ocid="gallery.add_button"
+                size="sm"
+                variant="outline"
+                className="border-white/40 text-white bg-white/10 hover:bg-white/20 hover:text-white rounded-full text-xs h-8 px-3"
+                onClick={() => setShowAddPhoto(true)}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                Add Photo
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 mt-4">
+        {/* Category filter pills */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+          {GALLERY_CATEGORIES.map((cat) => (
+            <button
+              type="button"
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`flex-none px-4 py-2 rounded-full text-xs font-semibold transition-all ${
+                activeCategory === cat.id
+                  ? "bg-primary text-white shadow-pink"
+                  : "bg-pink-100 text-primary/70 hover:bg-pink-200"
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Photos grid */}
+        <div className="mt-4">
+          {isLoading ? (
+            <div
+              data-ocid="gallery.loading_state"
+              className="grid grid-cols-2 gap-3"
+            >
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-44 rounded-2xl shimmer" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div data-ocid="gallery.empty_state" className="text-center py-16">
+              <div className="w-16 h-16 rounded-2xl gradient-pink mx-auto mb-4 flex items-center justify-center opacity-40">
+                <Camera className="w-8 h-8 text-white" />
+              </div>
+              <h4 className="font-semibold text-foreground mb-1">
+                No photos yet
+              </h4>
+              <p className="text-muted-foreground text-sm max-w-[200px] mx-auto">
+                {activeCategory === "all"
+                  ? "Gallery photos will appear here"
+                  : `No ${getCategoryLabel(activeCategory)} photos yet`}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 stagger-children">
+              {filtered.map((photo, i) => (
+                <div
+                  key={String(photo.id)}
+                  data-ocid={`gallery.photo.item.${i + 1}`}
+                  className="bg-white rounded-2xl card-shadow overflow-hidden relative"
+                >
+                  {photo.imageUrl ? (
+                    <img
+                      src={photo.imageUrl}
+                      alt={photo.title}
+                      className="w-full h-36 object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div
+                      className={`w-full h-36 ${getCategoryGradient(photo.category)} flex items-center justify-center`}
+                    >
+                      <Camera className="w-8 h-8 text-white/50" />
+                    </div>
+                  )}
+                  <div className="p-2.5">
+                    <p className="font-semibold text-xs text-foreground line-clamp-1">
+                      {photo.title}
+                    </p>
+                    <span
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 inline-block"
+                      style={{
+                        background: "oklch(0.95 0.03 355)",
+                        color: "oklch(0.56 0.22 358)",
+                      }}
+                    >
+                      {getCategoryLabel(photo.category)}
+                    </span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      data-ocid={`gallery.photo.delete_button.${i + 1}`}
+                      onClick={() => deletePhotoMutation.mutate(photo.id)}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-destructive/80 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Add Photo Dialog */}
+      <Dialog open={showAddPhoto} onOpenChange={setShowAddPhoto}>
+        <DialogContent className="max-w-sm mx-auto rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              Add Gallery Photo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <label
+                htmlFor="g-title"
+                className="text-xs font-semibold block mb-1"
+              >
+                Title
+              </label>
+              <Input
+                id="g-title"
+                placeholder="e.g. Bridal Updo"
+                value={newPhoto.title}
+                onChange={(e) =>
+                  setNewPhoto((p) => ({ ...p, title: e.target.value }))
+                }
+                className="rounded-xl border-pink-200 h-10"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="g-category"
+                className="text-xs font-semibold block mb-1"
+              >
+                Category
+              </label>
+              <select
+                id="g-category"
+                value={newPhoto.category}
+                onChange={(e) =>
+                  setNewPhoto((p) => ({ ...p, category: e.target.value }))
+                }
+                className="w-full h-10 px-3 rounded-xl border border-pink-200 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="hair">Hair</option>
+                <option value="makeup">Makeup</option>
+                <option value="skin">Skin</option>
+                <option value="nails">Nails</option>
+                <option value="bridal">Bridal</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label
+                htmlFor="g-url"
+                className="text-xs font-semibold block mb-1"
+              >
+                Image URL
+              </label>
+              <Input
+                id="g-url"
+                placeholder="https://example.com/photo.jpg"
+                value={newPhoto.imageUrl}
+                onChange={(e) =>
+                  setNewPhoto((p) => ({ ...p, imageUrl: e.target.value }))
+                }
+                className="rounded-xl border-pink-200 h-10"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Paste a direct image URL
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button
+              className="flex-1 h-10 bg-primary text-white rounded-xl shadow-pink text-sm"
+              onClick={() => addPhotoMutation.mutate()}
+              disabled={addPhotoMutation.isPending || !newPhoto.title}
+            >
+              {addPhotoMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                "Add Photo"
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 h-10 rounded-xl border-pink-200 text-sm"
+              onClick={() => setShowAddPhoto(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2352,13 +3853,24 @@ export default function App() {
     enabled: !!actor && !actorFetching && !!identity,
   });
 
+  // Fetch appointments for notifications
+  const { data: myAppointments = [] } = useQuery<Appointment[]>({
+    queryKey: ["my-appointments"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.listMyAppointments();
+    },
+    enabled: !!actor && !actorFetching && !!identity,
+  });
+
   // Auth flow
   useEffect(() => {
     if (isInitializing || actorFetching) return;
 
     if (!identity) {
       // Not logged in
-      if (!["login", "register"].includes(screen)) setScreen("login");
+      if (!["login", "register", "admin-login", "admin"].includes(screen))
+        setScreen("login");
       return;
     }
 
@@ -2451,7 +3963,13 @@ export default function App() {
     );
   }
 
-  const mainScreens: Screen[] = ["home", "services", "bookings", "profile"];
+  const mainScreens: Screen[] = [
+    "home",
+    "services",
+    "bookings",
+    "gallery",
+    "profile",
+  ];
 
   return (
     <div className="min-h-dvh bg-pink-50/40">
@@ -2462,12 +3980,14 @@ export default function App() {
         {screen === "login" && (
           <LoginScreen
             onGoRegister={() => navigate("register")}
-            onLogin={() => {
-              // Demo/guest mode: go directly to home with no profile
-              // (they'll see profile-setup if no profile in actor)
-              // For now just show home
-              navigate("home");
-            }}
+            onGoAdmin={() => navigate("admin-login")}
+          />
+        )}
+
+        {screen === "admin-login" && (
+          <AdminLoginScreen
+            onBack={() => navigate("login")}
+            onSuccess={() => navigate("admin")}
           />
         )}
 
@@ -2494,16 +4014,28 @@ export default function App() {
                   onNavigate={navigate}
                   onBookService={handleBookService}
                   onServiceDetail={handleServiceDetail}
+                  appointments={myAppointments}
                 />
               )}
               {screen === "services" && (
                 <ServicesScreen
                   onBookService={handleBookService}
                   onServiceDetail={handleServiceDetail}
+                  appointments={myAppointments}
                 />
               )}
               {screen === "bookings" && (
-                <BookingsScreen onNavigate={navigate} />
+                <BookingsScreen
+                  onNavigate={navigate}
+                  appointments={myAppointments}
+                />
+              )}
+              {screen === "gallery" && (
+                <GalleryScreen
+                  isAdmin={isAdmin}
+                  onNavigate={navigate}
+                  appointments={myAppointments}
+                />
               )}
               {screen === "profile" && (
                 <ProfileScreen
@@ -2511,6 +4043,7 @@ export default function App() {
                   onNavigate={navigate}
                   onLogout={handleLogout}
                   isAdmin={isAdmin}
+                  appointments={myAppointments}
                 />
               )}
             </main>
@@ -2543,6 +4076,7 @@ export default function App() {
             booking={booking}
             onBack={() => navigate("booking")}
             onSuccess={handlePaymentSuccess}
+            profile={profile ?? null}
           />
         )}
 
@@ -2555,7 +4089,9 @@ export default function App() {
         )}
 
         {screen === "admin" && (
-          <AdminScreen onBack={() => navigate("profile")} />
+          <AdminScreen
+            onBack={() => navigate(identity ? "profile" : "admin-login")}
+          />
         )}
 
         {/* No profile loading overlay */}

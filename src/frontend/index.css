@@ -141,6 +141,10 @@
     background: linear-gradient(135deg, oklch(0.78 0.12 80) 0%, oklch(0.68 0.16 20) 100%);
   }
 
+  .gradient-skin {
+    background: linear-gradient(135deg, oklch(0.80 0.10 175) 0%, oklch(0.68 0.14 195) 100%);
+  }
+
   .gradient-hero {
     background: linear-gradient(135deg, oklch(0.50 0.22 358) 0%, oklch(0.42 0.18 330) 60%, oklch(0.36 0.15 300) 100%);
   }

@@ -14,11 +14,10 @@ export const UserRole__1 = IDL.Variant({
   'guest' : IDL.Null,
 });
 export const ServiceCategory = IDL.Variant({
-  'bridal' : IDL.Null,
   'hair' : IDL.Null,
+  'skin' : IDL.Null,
   'nails' : IDL.Null,
   'makeup' : IDL.Null,
-  'facial' : IDL.Null,
 });
 export const AdminStats = IDL.Record({
   'pendingCount' : IDL.Nat,
@@ -26,7 +25,9 @@ export const AdminStats = IDL.Record({
   'totalBookings' : IDL.Nat,
   'completedCount' : IDL.Nat,
   'confirmedCount' : IDL.Nat,
+  'upcomingBookingsCount' : IDL.Nat,
   'totalRevenue' : IDL.Nat,
+  'todayBookingsCount' : IDL.Nat,
 });
 export const AppointmentStatus = IDL.Variant({
   'cancelled' : IDL.Null,
@@ -49,6 +50,7 @@ export const UserProfile = IDL.Record({
   'name' : IDL.Text,
   'role' : UserRole,
   'email' : IDL.Text,
+  'profilePictureUrl' : IDL.Text,
   'phone' : IDL.Text,
 });
 export const PaymentStatus = IDL.Variant({
@@ -72,9 +74,21 @@ export const Service = IDL.Record({
   'category' : ServiceCategory,
   'price' : IDL.Nat,
 });
+export const GalleryPhoto = IDL.Record({
+  'id' : IDL.Nat,
+  'title' : IDL.Text,
+  'imageUrl' : IDL.Text,
+  'category' : IDL.Text,
+  'uploadedAt' : IDL.Text,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'addGalleryPhoto' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole__1], [], []),
   'completePayment' : IDL.Func([IDL.Nat], [], []),
   'createAppointment' : IDL.Func(
@@ -96,8 +110,9 @@ export const idlService = IDL.Service({
       [IDL.Nat],
       [],
     ),
+  'deleteGalleryPhoto' : IDL.Func([IDL.Nat], [], []),
   'deleteService' : IDL.Func([IDL.Nat], [], []),
-  'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
+  'getAdminStats' : IDL.Func([IDL.Text], [AdminStats], ['query']),
   'getAppointment' : IDL.Func([IDL.Nat], [IDL.Opt(Appointment)], ['query']),
   'getAvailableTimeSlots' : IDL.Func(
       [IDL.Text],
@@ -120,9 +135,15 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listAllAppointments' : IDL.Func([], [IDL.Vec(Appointment)], ['query']),
+  'listAllUserProfiles' : IDL.Func([], [IDL.Vec(UserProfile)], ['query']),
+  'listGalleryPhotos' : IDL.Func([], [IDL.Vec(GalleryPhoto)], ['query']),
   'listMyAppointments' : IDL.Func([], [IDL.Vec(Appointment)], ['query']),
   'listServices' : IDL.Func([], [IDL.Vec(Service)], ['query']),
-  'saveCallerUserProfile' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
+  'saveCallerUserProfile' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [],
+      [],
+    ),
   'updateAppointmentStatus' : IDL.Func([IDL.Nat, AppointmentStatus], [], []),
   'updateService' : IDL.Func(
       [
@@ -149,11 +170,10 @@ export const idlFactory = ({ IDL }) => {
     'guest' : IDL.Null,
   });
   const ServiceCategory = IDL.Variant({
-    'bridal' : IDL.Null,
     'hair' : IDL.Null,
+    'skin' : IDL.Null,
     'nails' : IDL.Null,
     'makeup' : IDL.Null,
-    'facial' : IDL.Null,
   });
   const AdminStats = IDL.Record({
     'pendingCount' : IDL.Nat,
@@ -161,7 +181,9 @@ export const idlFactory = ({ IDL }) => {
     'totalBookings' : IDL.Nat,
     'completedCount' : IDL.Nat,
     'confirmedCount' : IDL.Nat,
+    'upcomingBookingsCount' : IDL.Nat,
     'totalRevenue' : IDL.Nat,
+    'todayBookingsCount' : IDL.Nat,
   });
   const AppointmentStatus = IDL.Variant({
     'cancelled' : IDL.Null,
@@ -184,6 +206,7 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'role' : UserRole,
     'email' : IDL.Text,
+    'profilePictureUrl' : IDL.Text,
     'phone' : IDL.Text,
   });
   const PaymentStatus = IDL.Variant({
@@ -207,9 +230,21 @@ export const idlFactory = ({ IDL }) => {
     'category' : ServiceCategory,
     'price' : IDL.Nat,
   });
+  const GalleryPhoto = IDL.Record({
+    'id' : IDL.Nat,
+    'title' : IDL.Text,
+    'imageUrl' : IDL.Text,
+    'category' : IDL.Text,
+    'uploadedAt' : IDL.Text,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'addGalleryPhoto' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole__1], [], []),
     'completePayment' : IDL.Func([IDL.Nat], [], []),
     'createAppointment' : IDL.Func(
@@ -231,8 +266,9 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Nat],
         [],
       ),
+    'deleteGalleryPhoto' : IDL.Func([IDL.Nat], [], []),
     'deleteService' : IDL.Func([IDL.Nat], [], []),
-    'getAdminStats' : IDL.Func([], [AdminStats], ['query']),
+    'getAdminStats' : IDL.Func([IDL.Text], [AdminStats], ['query']),
     'getAppointment' : IDL.Func([IDL.Nat], [IDL.Opt(Appointment)], ['query']),
     'getAvailableTimeSlots' : IDL.Func(
         [IDL.Text],
@@ -255,9 +291,15 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listAllAppointments' : IDL.Func([], [IDL.Vec(Appointment)], ['query']),
+    'listAllUserProfiles' : IDL.Func([], [IDL.Vec(UserProfile)], ['query']),
+    'listGalleryPhotos' : IDL.Func([], [IDL.Vec(GalleryPhoto)], ['query']),
     'listMyAppointments' : IDL.Func([], [IDL.Vec(Appointment)], ['query']),
     'listServices' : IDL.Func([], [IDL.Vec(Service)], ['query']),
-    'saveCallerUserProfile' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
+    'saveCallerUserProfile' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [],
+        [],
+      ),
     'updateAppointmentStatus' : IDL.Func([IDL.Nat, AppointmentStatus], [], []),
     'updateService' : IDL.Func(
         [

@@ -3,11 +3,15 @@ import Nat "mo:core/Nat";
 import Array "mo:core/Array";
 import Text "mo:core/Text";
 import List "mo:core/List";
-import Principal "mo:core/Principal";
+import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
+import Principal "mo:core/Principal";
+import Migration "migration";
+
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
+(with migration = Migration.run)
 actor {
   type Service = {
     id : Nat;
@@ -23,9 +27,8 @@ actor {
   type ServiceCategory = {
     #hair;
     #makeup;
-    #facial;
+    #skin;
     #nails;
-    #bridal;
   };
 
   type Appointment = {
@@ -69,6 +72,7 @@ actor {
     phone : Text;
     email : Text;
     role : UserRole;
+    profilePictureUrl : Text;
   };
 
   type AdminStats = {
@@ -78,98 +82,32 @@ actor {
     confirmedCount : Nat;
     completedCount : Nat;
     cancelledCount : Nat;
+    todayBookingsCount : Nat;
+    upcomingBookingsCount : Nat;
+  };
+
+  type GalleryPhoto = {
+    id : Nat;
+    title : Text;
+    category : Text;
+    imageUrl : Text;
+    uploadedAt : Text;
   };
 
   var nextServiceId = 1;
   var nextAppointmentId = 1;
   var nextPaymentId = 1;
+  var nextGalleryPhotoId = 1;
 
   let services = Map.empty<Nat, Service>();
   let appointments = Map.empty<Nat, Appointment>();
   let payments = Map.empty<Nat, Payment>();
   let userProfiles = Map.empty<Principal, UserProfile>();
+  let galleryPhotos = Map.empty<Nat, GalleryPhoto>();
 
-  // Authorization
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // Pre-seed services
-  private func seedServices() {
-    let seedData : [Service] = [
-      {
-        id = 1;
-        name = "Haircut";
-        category = #hair;
-        price = 2500;
-        durationMinutes = 45;
-        description = "Professional haircut service";
-        imageUrl = "";
-        isActive = true;
-      },
-      {
-        id = 2;
-        name = "Hair Spa";
-        category = #hair;
-        price = 4500;
-        durationMinutes = 60;
-        description = "Relaxing hair spa treatment";
-        imageUrl = "";
-        isActive = true;
-      },
-      {
-        id = 3;
-        name = "Facial";
-        category = #facial;
-        price = 3500;
-        durationMinutes = 60;
-        description = "Rejuvenating facial treatment";
-        imageUrl = "";
-        isActive = true;
-      },
-      {
-        id = 4;
-        name = "Party Makeup";
-        category = #makeup;
-        price = 6000;
-        durationMinutes = 90;
-        description = "Glamorous party makeup";
-        imageUrl = "";
-        isActive = true;
-      },
-      {
-        id = 5;
-        name = "Bridal Makeup";
-        category = #bridal;
-        price = 15000;
-        durationMinutes = 180;
-        description = "Complete bridal makeup package";
-        imageUrl = "";
-        isActive = true;
-      },
-      {
-        id = 6;
-        name = "Nail Art";
-        category = #nails;
-        price = 1500;
-        durationMinutes = 45;
-        description = "Creative nail art designs";
-        imageUrl = "";
-        isActive = true;
-      },
-    ];
-
-    for (service in seedData.values()) {
-      services.add(service.id, service);
-      if (service.id >= nextServiceId) {
-        nextServiceId := service.id + 1;
-      };
-    };
-  };
-
-  // Initialize with seed data
-  seedServices();
-
-  // Services - Admin can create/update/delete, anyone can list/get
   public shared ({ caller }) func createService(
     name : Text,
     category : ServiceCategory,
@@ -177,7 +115,7 @@ actor {
     durationMinutes : Nat,
     description : Text,
     imageUrl : Text,
-    isActive : Bool
+    isActive : Bool,
   ) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can create services");
@@ -208,7 +146,7 @@ actor {
     durationMinutes : Nat,
     description : Text,
     imageUrl : Text,
-    isActive : Bool
+    isActive : Bool,
   ) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can update services");
@@ -253,18 +191,16 @@ actor {
     Array.fromIter(services.values());
   };
 
-  // Appointments - Users can create their own, list their own; Admin can list all and update status
   public shared ({ caller }) func createAppointment(
     serviceId : Nat,
     date : Text,
     timeSlot : Text,
-    notes : Text
+    notes : Text,
   ) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can create appointments");
     };
 
-    // Verify service exists
     switch (services.get(serviceId)) {
       case (null) { Runtime.trap("Service not found") };
       case (?_) {};
@@ -290,7 +226,6 @@ actor {
     switch (appointments.get(appointmentId)) {
       case (null) { null };
       case (?appointment) {
-        // Users can only view their own appointments, admins can view all
         if (appointment.userId == caller or AccessControl.isAdmin(accessControlState, caller)) {
           ?appointment;
         } else {
@@ -324,7 +259,7 @@ actor {
 
   public shared ({ caller }) func updateAppointmentStatus(
     appointmentId : Nat,
-    status : AppointmentStatus
+    status : AppointmentStatus,
   ) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can update appointment status");
@@ -343,7 +278,6 @@ actor {
   };
 
   public query func getAvailableTimeSlots(date : Text) : async [Text] {
-    // Get all booked slots for the given date
     let bookedSlots = List.empty<Text>();
     for (appointment in appointments.values()) {
       if (appointment.date == date and (appointment.status == #pending or appointment.status == #confirmed)) {
@@ -351,7 +285,6 @@ actor {
       };
     };
 
-    // Generate all possible slots (9:00 to 18:00, every 30 minutes)
     let allSlots = List.empty<Text>();
     var hour = 9;
     while (hour < 18) {
@@ -362,7 +295,6 @@ actor {
     };
     allSlots.add("18:00");
 
-    // Filter out booked slots
     let availableSlots = List.empty<Text>();
     for (slot in allSlots.values()) {
       var isBooked = false;
@@ -379,16 +311,14 @@ actor {
     Array.fromIter(availableSlots.values());
   };
 
-  // Payments - Users can create for their appointments, view their own; Admin can view all
   public shared ({ caller }) func createPayment(
     appointmentId : Nat,
-    amount : Nat
+    amount : Nat,
   ) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can create payments");
     };
 
-    // Verify appointment exists and belongs to caller
     switch (appointments.get(appointmentId)) {
       case (null) { Runtime.trap("Appointment not found") };
       case (?appointment) {
@@ -412,14 +342,9 @@ actor {
   };
 
   public shared ({ caller }) func completePayment(paymentId : Nat) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can complete payments");
-    };
-
     switch (payments.get(paymentId)) {
       case (null) { Runtime.trap("Payment not found") };
       case (?payment) {
-        // Verify the payment's appointment belongs to the caller
         switch (appointments.get(payment.appointmentId)) {
           case (null) { Runtime.trap("Associated appointment not found") };
           case (?appointment) {
@@ -439,7 +364,6 @@ actor {
   };
 
   public query ({ caller }) func getPaymentByAppointment(appointmentId : Nat) : async ?Payment {
-    // Verify appointment ownership
     switch (appointments.get(appointmentId)) {
       case (null) { Runtime.trap("Appointment not found") };
       case (?appointment) {
@@ -447,7 +371,6 @@ actor {
           Runtime.trap("Unauthorized: Can only view payments for your own appointments");
         };
 
-        // Find payment for this appointment
         for (payment in payments.values()) {
           if (payment.appointmentId == appointmentId) {
             return ?payment;
@@ -462,7 +385,6 @@ actor {
     switch (payments.get(paymentId)) {
       case (null) { null };
       case (?payment) {
-        // Verify ownership through appointment
         switch (appointments.get(payment.appointmentId)) {
           case (null) { Runtime.trap("Associated appointment not found") };
           case (?appointment) {
@@ -477,8 +399,7 @@ actor {
     };
   };
 
-  // Admin Stats - Admin only
-  public query ({ caller }) func getAdminStats() : async AdminStats {
+  public query ({ caller }) func getAdminStats(todayDate : Text) : async AdminStats {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can view statistics");
     };
@@ -489,6 +410,8 @@ actor {
     var confirmedCount = 0;
     var completedCount = 0;
     var cancelledCount = 0;
+    var todayBookingsCount = 0;
+    var upcomingBookingsCount = 0;
 
     for (appointment in appointments.values()) {
       totalBookings += 1;
@@ -497,6 +420,12 @@ actor {
         case (#confirmed) { confirmedCount += 1 };
         case (#completed) { completedCount += 1 };
         case (#cancelled) { cancelledCount += 1 };
+      };
+
+      if (appointment.date == todayDate) {
+        todayBookingsCount += 1;
+      } else if ((appointment.status == #pending or appointment.status == #confirmed) and appointment.date >= todayDate) {
+        upcomingBookingsCount += 1;
       };
     };
 
@@ -507,16 +436,17 @@ actor {
     };
 
     {
-      totalBookings = totalBookings;
-      totalRevenue = totalRevenue;
-      pendingCount = pendingCount;
-      confirmedCount = confirmedCount;
-      completedCount = completedCount;
-      cancelledCount = cancelledCount;
+      totalBookings;
+      totalRevenue;
+      pendingCount;
+      confirmedCount;
+      completedCount;
+      cancelledCount;
+      todayBookingsCount;
+      upcomingBookingsCount;
     };
   };
 
-  // User Profile - Users can view/update their own, admins can view any
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view profiles");
@@ -534,7 +464,8 @@ actor {
   public shared ({ caller }) func saveCallerUserProfile(
     name : Text,
     phone : Text,
-    email : Text
+    email : Text,
+    profilePictureUrl : Text,
   ) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can save profiles");
@@ -548,12 +479,61 @@ actor {
 
     let profile : UserProfile = {
       id = caller;
-      name = name;
-      phone = phone;
-      email = email;
-      role = role;
+      name;
+      phone;
+      email;
+      role;
+      profilePictureUrl;
     };
 
     userProfiles.add(caller, profile);
+  };
+
+  public query ({ caller }) func listAllUserProfiles() : async [UserProfile] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can list user profiles");
+    };
+    Array.fromIter(userProfiles.values());
+  };
+
+  public query func listGalleryPhotos() : async [GalleryPhoto] {
+    Array.fromIter(galleryPhotos.values());
+  };
+
+  public shared ({ caller }) func addGalleryPhoto(
+    title : Text,
+    category : Text,
+    imageUrl : Text,
+    uploadedAt : Text,
+  ) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can add gallery photos");
+    };
+
+    let photoId = nextGalleryPhotoId;
+    let galleryPhoto : GalleryPhoto = {
+      id = photoId;
+      title;
+      category;
+      imageUrl;
+      uploadedAt;
+    };
+
+    galleryPhotos.add(photoId, galleryPhoto);
+    nextGalleryPhotoId += 1;
+    photoId;
+  };
+
+  public shared ({ caller }) func deleteGalleryPhoto(photoId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can delete gallery photos");
+    };
+
+    switch (galleryPhotos.get(photoId)) {
+      case (null) { Runtime.trap("Gallery photo not found") };
+      case (?_) {
+        galleryPhotos.remove(photoId);
+      };
+    };
   };
 };

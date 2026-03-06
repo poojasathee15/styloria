@@ -89,13 +89,22 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface GalleryPhoto {
+    id: bigint;
+    title: string;
+    imageUrl: string;
+    category: string;
+    uploadedAt: string;
+}
 export interface AdminStats {
     pendingCount: bigint;
     cancelledCount: bigint;
     totalBookings: bigint;
     completedCount: bigint;
     confirmedCount: bigint;
+    upcomingBookingsCount: bigint;
     totalRevenue: bigint;
+    todayBookingsCount: bigint;
 }
 export interface Service {
     id: bigint;
@@ -127,6 +136,7 @@ export interface UserProfile {
     name: string;
     role: UserRole;
     email: string;
+    profilePictureUrl: string;
     phone: string;
 }
 export enum AppointmentStatus {
@@ -141,11 +151,10 @@ export enum PaymentStatus {
     failed = "failed"
 }
 export enum ServiceCategory {
-    bridal = "bridal",
     hair = "hair",
+    skin = "skin",
     nails = "nails",
-    makeup = "makeup",
-    facial = "facial"
+    makeup = "makeup"
 }
 export enum UserRole {
     admin = "admin",
@@ -158,13 +167,15 @@ export enum UserRole__1 {
 }
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    addGalleryPhoto(title: string, category: string, imageUrl: string, uploadedAt: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole__1): Promise<void>;
     completePayment(paymentId: bigint): Promise<void>;
     createAppointment(serviceId: bigint, date: string, timeSlot: string, notes: string): Promise<bigint>;
     createPayment(appointmentId: bigint, amount: bigint): Promise<bigint>;
     createService(name: string, category: ServiceCategory, price: bigint, durationMinutes: bigint, description: string, imageUrl: string, isActive: boolean): Promise<bigint>;
+    deleteGalleryPhoto(photoId: bigint): Promise<void>;
     deleteService(serviceId: bigint): Promise<void>;
-    getAdminStats(): Promise<AdminStats>;
+    getAdminStats(todayDate: string): Promise<AdminStats>;
     getAppointment(appointmentId: bigint): Promise<Appointment | null>;
     getAvailableTimeSlots(date: string): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -175,9 +186,11 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     listAllAppointments(): Promise<Array<Appointment>>;
+    listAllUserProfiles(): Promise<Array<UserProfile>>;
+    listGalleryPhotos(): Promise<Array<GalleryPhoto>>;
     listMyAppointments(): Promise<Array<Appointment>>;
     listServices(): Promise<Array<Service>>;
-    saveCallerUserProfile(name: string, phone: string, email: string): Promise<void>;
+    saveCallerUserProfile(name: string, phone: string, email: string, profilePictureUrl: string): Promise<void>;
     updateAppointmentStatus(appointmentId: bigint, status: AppointmentStatus): Promise<void>;
     updateService(serviceId: bigint, name: string, category: ServiceCategory, price: bigint, durationMinutes: bigint, description: string, imageUrl: string, isActive: boolean): Promise<void>;
 }
@@ -195,6 +208,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor._initializeAccessControlWithSecret(arg0);
+            return result;
+        }
+    }
+    async addGalleryPhoto(arg0: string, arg1: string, arg2: string, arg3: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addGalleryPhoto(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addGalleryPhoto(arg0, arg1, arg2, arg3);
             return result;
         }
     }
@@ -268,6 +295,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async deleteGalleryPhoto(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteGalleryPhoto(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteGalleryPhoto(arg0);
+            return result;
+        }
+    }
     async deleteService(arg0: bigint): Promise<void> {
         if (this.processError) {
             try {
@@ -282,17 +323,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getAdminStats(): Promise<AdminStats> {
+    async getAdminStats(arg0: string): Promise<AdminStats> {
         if (this.processError) {
             try {
-                const result = await this.actor.getAdminStats();
+                const result = await this.actor.getAdminStats(arg0);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getAdminStats();
+            const result = await this.actor.getAdminStats(arg0);
             return result;
         }
     }
@@ -436,6 +477,34 @@ export class Backend implements backendInterface {
             return from_candid_vec_n27(this._uploadFile, this._downloadFile, result);
         }
     }
+    async listAllUserProfiles(): Promise<Array<UserProfile>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listAllUserProfiles();
+                return from_candid_vec_n28(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listAllUserProfiles();
+            return from_candid_vec_n28(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async listGalleryPhotos(): Promise<Array<GalleryPhoto>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.listGalleryPhotos();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.listGalleryPhotos();
+            return result;
+        }
+    }
     async listMyAppointments(): Promise<Array<Appointment>> {
         if (this.processError) {
             try {
@@ -454,41 +523,41 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.listServices();
-                return from_candid_vec_n28(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n29(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.listServices();
-            return from_candid_vec_n28(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n29(this._uploadFile, this._downloadFile, result);
         }
     }
-    async saveCallerUserProfile(arg0: string, arg1: string, arg2: string): Promise<void> {
+    async saveCallerUserProfile(arg0: string, arg1: string, arg2: string, arg3: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.saveCallerUserProfile(arg0, arg1, arg2);
+                const result = await this.actor.saveCallerUserProfile(arg0, arg1, arg2, arg3);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.saveCallerUserProfile(arg0, arg1, arg2);
+            const result = await this.actor.saveCallerUserProfile(arg0, arg1, arg2, arg3);
             return result;
         }
     }
     async updateAppointmentStatus(arg0: bigint, arg1: AppointmentStatus): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.updateAppointmentStatus(arg0, to_candid_AppointmentStatus_n29(this._uploadFile, this._downloadFile, arg1));
+                const result = await this.actor.updateAppointmentStatus(arg0, to_candid_AppointmentStatus_n30(this._uploadFile, this._downloadFile, arg1));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.updateAppointmentStatus(arg0, to_candid_AppointmentStatus_n29(this._uploadFile, this._downloadFile, arg1));
+            const result = await this.actor.updateAppointmentStatus(arg0, to_candid_AppointmentStatus_n30(this._uploadFile, this._downloadFile, arg1));
             return result;
         }
     }
@@ -551,12 +620,14 @@ function from_candid_record_n12(_uploadFile: (file: ExternalBlob) => Promise<Uin
     name: string;
     role: _UserRole;
     email: string;
+    profilePictureUrl: string;
     phone: string;
 }): {
     id: Principal;
     name: string;
     role: UserRole;
     email: string;
+    profilePictureUrl: string;
     phone: string;
 } {
     return {
@@ -564,6 +635,7 @@ function from_candid_record_n12(_uploadFile: (file: ExternalBlob) => Promise<Uin
         name: value.name,
         role: from_candid_UserRole_n13(_uploadFile, _downloadFile, value.role),
         email: value.email,
+        profilePictureUrl: value.profilePictureUrl,
         phone: value.phone
     };
 }
@@ -668,17 +740,15 @@ function from_candid_variant_n21(_uploadFile: (file: ExternalBlob) => Promise<Ui
     return "pending" in value ? PaymentStatus.pending : "completed" in value ? PaymentStatus.completed : "failed" in value ? PaymentStatus.failed : value;
 }
 function from_candid_variant_n26(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    bridal: null;
-} | {
     hair: null;
+} | {
+    skin: null;
 } | {
     nails: null;
 } | {
     makeup: null;
-} | {
-    facial: null;
 }): ServiceCategory {
-    return "bridal" in value ? ServiceCategory.bridal : "hair" in value ? ServiceCategory.hair : "nails" in value ? ServiceCategory.nails : "makeup" in value ? ServiceCategory.makeup : "facial" in value ? ServiceCategory.facial : value;
+    return "hair" in value ? ServiceCategory.hair : "skin" in value ? ServiceCategory.skin : "nails" in value ? ServiceCategory.nails : "makeup" in value ? ServiceCategory.makeup : value;
 }
 function from_candid_variant_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     cancelled: null;
@@ -694,11 +764,14 @@ function from_candid_variant_n9(_uploadFile: (file: ExternalBlob) => Promise<Uin
 function from_candid_vec_n27(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Appointment>): Array<Appointment> {
     return value.map((x)=>from_candid_Appointment_n6(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Service>): Array<Service> {
+function from_candid_vec_n28(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_UserProfile>): Array<UserProfile> {
+    return value.map((x)=>from_candid_UserProfile_n11(_uploadFile, _downloadFile, x));
+}
+function from_candid_vec_n29(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_Service>): Array<Service> {
     return value.map((x)=>from_candid_Service_n23(_uploadFile, _downloadFile, x));
 }
-function to_candid_AppointmentStatus_n29(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: AppointmentStatus): _AppointmentStatus {
-    return to_candid_variant_n30(_uploadFile, _downloadFile, value);
+function to_candid_AppointmentStatus_n30(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: AppointmentStatus): _AppointmentStatus {
+    return to_candid_variant_n31(_uploadFile, _downloadFile, value);
 }
 function to_candid_ServiceCategory_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ServiceCategory): _ServiceCategory {
     return to_candid_variant_n4(_uploadFile, _downloadFile, value);
@@ -721,7 +794,7 @@ function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         guest: null
     } : value;
 }
-function to_candid_variant_n30(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: AppointmentStatus): {
+function to_candid_variant_n31(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: AppointmentStatus): {
     cancelled: null;
 } | {
     pending: null;
@@ -741,26 +814,22 @@ function to_candid_variant_n30(_uploadFile: (file: ExternalBlob) => Promise<Uint
     } : value;
 }
 function to_candid_variant_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: ServiceCategory): {
-    bridal: null;
-} | {
     hair: null;
+} | {
+    skin: null;
 } | {
     nails: null;
 } | {
     makeup: null;
-} | {
-    facial: null;
 } {
-    return value == ServiceCategory.bridal ? {
-        bridal: null
-    } : value == ServiceCategory.hair ? {
+    return value == ServiceCategory.hair ? {
         hair: null
+    } : value == ServiceCategory.skin ? {
+        skin: null
     } : value == ServiceCategory.nails ? {
         nails: null
     } : value == ServiceCategory.makeup ? {
         makeup: null
-    } : value == ServiceCategory.facial ? {
-        facial: null
     } : value;
 }
 export interface CreateActorOptions {

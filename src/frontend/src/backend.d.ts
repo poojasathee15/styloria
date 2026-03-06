@@ -7,13 +7,22 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
+export interface GalleryPhoto {
+    id: bigint;
+    title: string;
+    imageUrl: string;
+    category: string;
+    uploadedAt: string;
+}
 export interface AdminStats {
     pendingCount: bigint;
     cancelledCount: bigint;
     totalBookings: bigint;
     completedCount: bigint;
     confirmedCount: bigint;
+    upcomingBookingsCount: bigint;
     totalRevenue: bigint;
+    todayBookingsCount: bigint;
 }
 export interface Service {
     id: bigint;
@@ -45,6 +54,7 @@ export interface UserProfile {
     name: string;
     role: UserRole;
     email: string;
+    profilePictureUrl: string;
     phone: string;
 }
 export enum AppointmentStatus {
@@ -59,11 +69,10 @@ export enum PaymentStatus {
     failed = "failed"
 }
 export enum ServiceCategory {
-    bridal = "bridal",
     hair = "hair",
+    skin = "skin",
     nails = "nails",
-    makeup = "makeup",
-    facial = "facial"
+    makeup = "makeup"
 }
 export enum UserRole {
     admin = "admin",
@@ -75,13 +84,15 @@ export enum UserRole__1 {
     guest = "guest"
 }
 export interface backendInterface {
+    addGalleryPhoto(title: string, category: string, imageUrl: string, uploadedAt: string): Promise<bigint>;
     assignCallerUserRole(user: Principal, role: UserRole__1): Promise<void>;
     completePayment(paymentId: bigint): Promise<void>;
     createAppointment(serviceId: bigint, date: string, timeSlot: string, notes: string): Promise<bigint>;
     createPayment(appointmentId: bigint, amount: bigint): Promise<bigint>;
     createService(name: string, category: ServiceCategory, price: bigint, durationMinutes: bigint, description: string, imageUrl: string, isActive: boolean): Promise<bigint>;
+    deleteGalleryPhoto(photoId: bigint): Promise<void>;
     deleteService(serviceId: bigint): Promise<void>;
-    getAdminStats(): Promise<AdminStats>;
+    getAdminStats(todayDate: string): Promise<AdminStats>;
     getAppointment(appointmentId: bigint): Promise<Appointment | null>;
     getAvailableTimeSlots(date: string): Promise<Array<string>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
@@ -92,9 +103,11 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     listAllAppointments(): Promise<Array<Appointment>>;
+    listAllUserProfiles(): Promise<Array<UserProfile>>;
+    listGalleryPhotos(): Promise<Array<GalleryPhoto>>;
     listMyAppointments(): Promise<Array<Appointment>>;
     listServices(): Promise<Array<Service>>;
-    saveCallerUserProfile(name: string, phone: string, email: string): Promise<void>;
+    saveCallerUserProfile(name: string, phone: string, email: string, profilePictureUrl: string): Promise<void>;
     updateAppointmentStatus(appointmentId: bigint, status: AppointmentStatus): Promise<void>;
     updateService(serviceId: bigint, name: string, category: ServiceCategory, price: bigint, durationMinutes: bigint, description: string, imageUrl: string, isActive: boolean): Promise<void>;
 }
