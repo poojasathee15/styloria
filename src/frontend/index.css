@@ -1,0 +1,219 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Outfit (Body) ─────────────────────────────────────── */
+@font-face {
+  font-family: "Outfit";
+  src: url("/assets/fonts/Outfit.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Playfair Display (Display) ────────────────────────── */
+@font-face {
+  font-family: "Playfair Display";
+  src: url("/assets/fonts/PlayfairDisplay.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 1rem;
+
+    /* ── Styloria Pink Palette (OKLCH raw L C H) ── */
+    --background: 0.98 0.008 355;          /* #FFF5F8 soft pink */
+    --foreground: 0.18 0.01 260;           /* near-black charcoal */
+    --card: 1 0.003 355;                   /* white with hint of pink */
+    --card-foreground: 0.18 0.01 260;
+    --popover: 1 0.003 355;
+    --popover-foreground: 0.18 0.01 260;
+
+    /* Primary = #E91E63 vivid pink */
+    --primary: 0.56 0.22 358;
+    --primary-foreground: 1 0 0;
+
+    /* Secondary = #1E1E1E dark charcoal */
+    --secondary: 0.22 0.005 260;
+    --secondary-foreground: 0.97 0 0;
+
+    --muted: 0.94 0.015 355;
+    --muted-foreground: 0.52 0.03 340;
+
+    --accent: 0.93 0.025 355;
+    --accent-foreground: 0.56 0.22 358;
+
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+
+    --border: 0.9 0.018 355;
+    --input: 0.9 0.018 355;
+    --ring: 0.56 0.22 358;
+
+    /* Charts */
+    --chart-1: 0.56 0.22 358;
+    --chart-2: 0.65 0.18 340;
+    --chart-3: 0.72 0.12 20;
+    --chart-4: 0.60 0.15 300;
+    --chart-5: 0.75 0.10 260;
+
+    /* Sidebar */
+    --sidebar: 0.98 0.008 355;
+    --sidebar-foreground: 0.18 0.01 260;
+    --sidebar-primary: 0.56 0.22 358;
+    --sidebar-primary-foreground: 1 0 0;
+    --sidebar-accent: 0.93 0.025 355;
+    --sidebar-accent-foreground: 0.56 0.22 358;
+    --sidebar-border: 0.9 0.018 355;
+    --sidebar-ring: 0.56 0.22 358;
+
+    /* Custom Styloria tokens */
+    --pink-100: 0.95 0.030 355;
+    --pink-200: 0.90 0.055 355;
+    --pink-300: 0.82 0.095 355;
+    --pink-400: 0.70 0.155 358;
+    --pink-500: 0.56 0.22 358;
+    --pink-600: 0.48 0.21 358;
+    --gold: 0.78 0.12 80;
+    --rose-light: 0.94 0.030 10;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Outfit", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: "Playfair Display", Georgia, serif;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Playfair Display", Georgia, serif;
+  }
+
+  .font-body {
+    font-family: "Outfit", system-ui, sans-serif;
+  }
+
+  /* Mobile container */
+  .mobile-container {
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    position: relative;
+    background: oklch(var(--background));
+    box-shadow: 0 0 80px 0 oklch(var(--primary) / 0.08);
+  }
+
+  /* Pink gradient backgrounds */
+  .gradient-pink {
+    background: linear-gradient(135deg, oklch(var(--pink-500)) 0%, oklch(0.62 0.18 330) 100%);
+  }
+
+  .gradient-hair {
+    background: linear-gradient(135deg, oklch(0.72 0.15 330) 0%, oklch(0.60 0.18 290) 100%);
+  }
+
+  .gradient-makeup {
+    background: linear-gradient(135deg, oklch(0.70 0.18 10) 0%, oklch(0.56 0.22 358) 100%);
+  }
+
+  .gradient-facial {
+    background: linear-gradient(135deg, oklch(0.88 0.08 50) 0%, oklch(0.94 0.04 30) 100%);
+  }
+
+  .gradient-nails {
+    background: linear-gradient(135deg, oklch(0.60 0.18 290) 0%, oklch(0.52 0.20 260) 100%);
+  }
+
+  .gradient-bridal {
+    background: linear-gradient(135deg, oklch(0.78 0.12 80) 0%, oklch(0.68 0.16 20) 100%);
+  }
+
+  .gradient-hero {
+    background: linear-gradient(135deg, oklch(0.50 0.22 358) 0%, oklch(0.42 0.18 330) 60%, oklch(0.36 0.15 300) 100%);
+  }
+
+  /* Glass card effect */
+  .glass-card {
+    background: oklch(1 0 0 / 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid oklch(var(--pink-300) / 0.3);
+  }
+
+  /* Soft card shadow */
+  .card-shadow {
+    box-shadow: 0 4px 24px -4px oklch(var(--primary) / 0.12), 0 1px 4px oklch(0 0 0 / 0.05);
+  }
+
+  .card-shadow-lg {
+    box-shadow: 0 8px 40px -8px oklch(var(--primary) / 0.18), 0 2px 8px oklch(0 0 0 / 0.06);
+  }
+
+  /* Scrollbar hide */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Bottom safe area */
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+  }
+
+  /* Status badge colors */
+  .badge-confirmed { background: oklch(0.90 0.12 160); color: oklch(0.25 0.12 160); }
+  .badge-pending   { background: oklch(0.93 0.10 80);  color: oklch(0.35 0.12 80); }
+  .badge-completed { background: oklch(0.92 0.08 250); color: oklch(0.30 0.15 250); }
+  .badge-cancelled { background: oklch(0.93 0.04 10);  color: oklch(0.42 0.12 10); }
+
+  /* Pink pulse animation for hero CTA */
+  @keyframes pink-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(var(--primary) / 0.4); }
+    50%       { box-shadow: 0 0 0 12px oklch(var(--primary) / 0); }
+  }
+
+  .pulse-pink {
+    animation: pink-pulse 2.4s ease-in-out infinite;
+  }
+
+  /* Shimmer loading */
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, oklch(var(--muted)) 25%, oklch(var(--pink-100)) 50%, oklch(var(--muted)) 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.6s infinite linear;
+  }
+
+  /* Fade in up */
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.45s ease-out both;
+  }
+
+  /* Stagger children */
+  .stagger-children > * { animation: fade-in-up 0.4s ease-out both; }
+  .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+  .stagger-children > *:nth-child(2) { animation-delay: 0.10s; }
+  .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+  .stagger-children > *:nth-child(4) { animation-delay: 0.20s; }
+  .stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+  .stagger-children > *:nth-child(6) { animation-delay: 0.30s; }
+}
