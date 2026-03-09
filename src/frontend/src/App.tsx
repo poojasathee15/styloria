@@ -60,6 +60,7 @@ import type {
 import { AppointmentStatus, ServiceCategory, UserRole__1 } from "./backend.d";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
+import { compressImage } from "./utils/compressImage";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -1951,12 +1952,9 @@ function ProfileScreen({
   const handlePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      picMutation.mutate(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    compressImage(file, 400, 0.7)
+      .then((dataUrl) => picMutation.mutate(dataUrl))
+      .catch(() => toast.error("Failed to process image"));
   };
 
   const initials = getInitials(profile?.name ?? "G");
@@ -2207,6 +2205,141 @@ function ProfileScreen({
 // ─────────────────────────────────────────────────────────────
 // ADMIN SCREEN
 // ─────────────────────────────────────────────────────────────
+const SEED_SERVICES = [
+  // Hair
+  {
+    name: "Haircut",
+    category: ServiceCategory.hair,
+    price: 499,
+    durationMinutes: 45,
+    description: "Professional haircut tailored to your style and face shape.",
+  },
+  {
+    name: "Hair Spa",
+    category: ServiceCategory.hair,
+    price: 1299,
+    durationMinutes: 60,
+    description:
+      "Nourishing hair spa treatment for deep conditioning and shine.",
+  },
+  {
+    name: "Hair Smoothening",
+    category: ServiceCategory.hair,
+    price: 4999,
+    durationMinutes: 120,
+    description:
+      "Semi-permanent smoothening treatment for frizz-free, silky hair.",
+  },
+  {
+    name: "Hair Coloring",
+    category: ServiceCategory.hair,
+    price: 2499,
+    durationMinutes: 90,
+    description: "Expert hair coloring with premium color products.",
+  },
+  {
+    name: "Keratin Treatment",
+    category: ServiceCategory.hair,
+    price: 5999,
+    durationMinutes: 150,
+    description:
+      "Keratin treatment for ultra-smooth, manageable hair lasting months.",
+  },
+  // Makeup
+  {
+    name: "Party Makeup",
+    category: ServiceCategory.makeup,
+    price: 2999,
+    durationMinutes: 60,
+    description: "Glamorous party makeup look for any special occasion.",
+  },
+  {
+    name: "Engagement Makeup",
+    category: ServiceCategory.makeup,
+    price: 4999,
+    durationMinutes: 90,
+    description:
+      "Elegant and long-lasting makeup for your engagement ceremony.",
+  },
+  {
+    name: "Bridal HD Makeup",
+    category: ServiceCategory.makeup,
+    price: 9999,
+    durationMinutes: 120,
+    description:
+      "High-definition bridal makeup for a flawless look on your big day.",
+  },
+  {
+    name: "Airbrush Bridal",
+    category: ServiceCategory.makeup,
+    price: 12999,
+    durationMinutes: 150,
+    description: "Professional airbrush bridal makeup for a perfect finish.",
+  },
+  // Nails
+  {
+    name: "Manicure",
+    category: ServiceCategory.nails,
+    price: 799,
+    durationMinutes: 30,
+    description:
+      "Classic manicure with shaping, cuticle care, and nail polish.",
+  },
+  {
+    name: "Pedicure",
+    category: ServiceCategory.nails,
+    price: 999,
+    durationMinutes: 45,
+    description: "Relaxing pedicure with foot soak, scrub, and nail polish.",
+  },
+  {
+    name: "Nail Extensions",
+    category: ServiceCategory.nails,
+    price: 1999,
+    durationMinutes: 60,
+    description: "Acrylic or gel nail extensions for a long and elegant look.",
+  },
+  {
+    name: "Gel Polish",
+    category: ServiceCategory.nails,
+    price: 699,
+    durationMinutes: 30,
+    description: "Long-lasting gel polish in your choice of color.",
+  },
+  // Skin
+  {
+    name: "Cleanup",
+    category: ServiceCategory.skin,
+    price: 899,
+    durationMinutes: 30,
+    description:
+      "Basic skin cleanup to remove impurities and refresh your skin.",
+  },
+  {
+    name: "Fruit Facial",
+    category: ServiceCategory.skin,
+    price: 1299,
+    durationMinutes: 45,
+    description:
+      "Brightening fruit facial packed with vitamins for glowing skin.",
+  },
+  {
+    name: "Gold Facial",
+    category: ServiceCategory.skin,
+    price: 1999,
+    durationMinutes: 60,
+    description: "Luxurious gold facial for anti-aging and radiant complexion.",
+  },
+  {
+    name: "Hydra Facial",
+    category: ServiceCategory.skin,
+    price: 3999,
+    durationMinutes: 60,
+    description:
+      "Advanced hydra facial for deep cleansing, hydration and glow.",
+  },
+];
+
 function AdminScreen({
   onBack,
   isOwnerAdmin,
@@ -2557,6 +2690,29 @@ function AdminScreen({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const seedServicesMutation = useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("No actor");
+      for (const svc of SEED_SERVICES) {
+        await actor.ownerCreateService(
+          OWNER_SECRET,
+          svc.name,
+          svc.category,
+          BigInt(svc.price),
+          BigInt(svc.durationMinutes),
+          svc.description,
+          "",
+          true,
+        );
+      }
+    },
+    onSuccess: () => {
+      toast.success("All 17 services added!");
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const statCards = stats
     ? [
         {
@@ -2764,6 +2920,26 @@ function AdminScreen({
               >
                 <Scissors className="w-10 h-10 text-pink-200 mx-auto mb-2" />
                 <p className="text-muted-foreground text-sm">No services yet</p>
+                {isOwnerAdmin && (
+                  <Button
+                    data-ocid="admin.services.primary_button"
+                    className="mt-4 bg-primary text-white rounded-full px-6 shadow-pink text-sm h-9"
+                    onClick={() => seedServicesMutation.mutate()}
+                    disabled={seedServicesMutation.isPending}
+                  >
+                    {seedServicesMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Seeding services…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Seed Default Services
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -2982,13 +3158,14 @@ function AdminScreen({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = () =>
-                          setEditServiceForm((p) => ({
-                            ...p,
-                            imageUrl: reader.result as string,
-                          }));
-                        reader.readAsDataURL(file);
+                        compressImage(file)
+                          .then((dataUrl) =>
+                            setEditServiceForm((p) => ({
+                              ...p,
+                              imageUrl: dataUrl,
+                            })),
+                          )
+                          .catch(() => toast.error("Failed to process image"));
                       }}
                     />
                   </div>
@@ -3172,13 +3349,14 @@ function AdminScreen({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = () =>
-                          setNewService((p) => ({
-                            ...p,
-                            imageUrl: reader.result as string,
-                          }));
-                        reader.readAsDataURL(file);
+                        compressImage(file)
+                          .then((dataUrl) =>
+                            setNewService((p) => ({
+                              ...p,
+                              imageUrl: dataUrl,
+                            })),
+                          )
+                          .catch(() => toast.error("Failed to process image"));
                       }}
                     />
                   </div>
@@ -3638,13 +3816,14 @@ function AdminScreen({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = () =>
-                          setEditPhotoForm((p) => ({
-                            ...p,
-                            imageUrl: reader.result as string,
-                          }));
-                        reader.readAsDataURL(file);
+                        compressImage(file)
+                          .then((dataUrl) =>
+                            setEditPhotoForm((p) => ({
+                              ...p,
+                              imageUrl: dataUrl,
+                            })),
+                          )
+                          .catch(() => toast.error("Failed to process image"));
                       }}
                     />
                   </div>
@@ -3759,13 +3938,14 @@ function AdminScreen({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = () =>
-                          setNewPhoto((p) => ({
-                            ...p,
-                            imageUrl: reader.result as string,
-                          }));
-                        reader.readAsDataURL(file);
+                        compressImage(file)
+                          .then((dataUrl) =>
+                            setNewPhoto((p) => ({
+                              ...p,
+                              imageUrl: dataUrl,
+                            })),
+                          )
+                          .catch(() => toast.error("Failed to process image"));
                       }}
                     />
                   </div>
@@ -4218,13 +4398,14 @@ function GalleryScreen({
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () =>
-                    setNewPhoto((p) => ({
-                      ...p,
-                      imageUrl: reader.result as string,
-                    }));
-                  reader.readAsDataURL(file);
+                  compressImage(file)
+                    .then((dataUrl) =>
+                      setNewPhoto((p) => ({
+                        ...p,
+                        imageUrl: dataUrl,
+                      })),
+                    )
+                    .catch(() => toast.error("Failed to process image"));
                 }}
               />
             </div>
