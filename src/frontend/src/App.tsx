@@ -271,15 +271,14 @@ function NotificationBell({ appointments }: { appointments: Appointment[] }) {
 // Styloria Logo
 // ─────────────────────────────────────────────────────────────
 function StyloriaLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
-  const sizes = { sm: "text-xl", md: "text-2xl", lg: "text-3xl" };
+  const heights = { sm: "h-8", md: "h-10", lg: "h-14" };
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="w-7 h-7 rounded-full gradient-pink flex items-center justify-center shadow-pink">
-        <Sparkles className="w-3.5 h-3.5 text-white" />
-      </div>
-      <span className={`font-display font-bold text-primary ${sizes[size]}`}>
-        Styloria
-      </span>
+    <div className="flex items-center">
+      <img
+        src="/assets/uploads/styloria_beauty-1.png"
+        alt="Styloria"
+        className={`${heights[size]} w-auto object-contain`}
+      />
     </div>
   );
 }
@@ -445,22 +444,22 @@ function LoginScreen({
   onGoAdmin: () => void;
 }) {
   const { login, isLoggingIn, isInitializing } = useInternetIdentity();
+  const [showForgotInfo, setShowForgotInfo] = useState(false);
 
   return (
     <div className="min-h-dvh flex flex-col">
       {/* Hero */}
       <div className="gradient-hero px-6 pt-16 pb-12 flex flex-col items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-          <Sparkles className="w-8 h-8 text-white" />
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-5 py-4 shadow-lg">
+          <img
+            src="/assets/uploads/styloria_beauty-1.png"
+            alt="Styloria"
+            className="h-20 w-auto object-contain"
+          />
         </div>
-        <div className="text-center">
-          <h1 className="font-display text-4xl font-bold text-white">
-            Styloria
-          </h1>
-          <p className="text-white/80 text-sm mt-1 font-body">
-            Your luxury beauty destination
-          </p>
-        </div>
+        <p className="text-white/80 text-sm font-body">
+          Your luxury beauty destination
+        </p>
         <div className="flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((s) => (
             <Star key={s} className="w-4 h-4 fill-yellow-300 text-yellow-300" />
@@ -492,18 +491,28 @@ function LoginScreen({
           {isLoggingIn ? "Connecting…" : "Sign in with Internet Identity"}
         </Button>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          New here?{" "}
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-muted-foreground">
+            New here?{" "}
+            <button
+              type="button"
+              data-ocid="auth.register_link"
+              onClick={login}
+              className="text-primary font-semibold hover:underline"
+              disabled={isLoggingIn || isInitializing}
+            >
+              Create account
+            </button>
+          </p>
           <button
             type="button"
-            data-ocid="auth.register_link"
-            onClick={login}
-            className="text-primary font-semibold hover:underline"
-            disabled={isLoggingIn || isInitializing}
+            data-ocid="auth.forgot_password_link"
+            onClick={() => setShowForgotInfo(true)}
+            className="text-sm text-primary font-semibold hover:underline"
           >
-            Create account
+            Forgot Password?
           </button>
-        </p>
+        </div>
 
         <div className="mt-4 pt-4 border-t border-pink-100">
           <button
@@ -517,6 +526,53 @@ function LoginScreen({
           </button>
         </div>
       </div>
+
+      {/* Forgot Password Info Dialog */}
+      <Dialog open={showForgotInfo} onOpenChange={setShowForgotInfo}>
+        <DialogContent
+          data-ocid="forgot-password.dialog"
+          className="rounded-3xl max-w-[340px] mx-auto"
+        >
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-foreground">
+              No Password Needed
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              Styloria uses{" "}
+              <span className="font-semibold text-foreground">
+                Internet Identity
+              </span>{" "}
+              — a secure, passwordless login system. There is no email or
+              password to remember or reset.
+            </p>
+            <p>
+              To sign in, simply tap{" "}
+              <span className="font-semibold text-primary">
+                "Sign in with Internet Identity"
+              </span>{" "}
+              and authenticate using your device (Face ID, fingerprint, or
+              passkey).
+            </p>
+            <p className="text-xs bg-pink-50 rounded-xl p-3 text-foreground/70">
+              If you've lost access to your Internet Identity anchor, visit{" "}
+              <span className="font-semibold text-primary">
+                identity.ic0.app
+              </span>{" "}
+              to recover it using your recovery phrase or another registered
+              device.
+            </p>
+          </div>
+          <Button
+            data-ocid="forgot-password.close_button"
+            className="w-full mt-2 bg-primary text-white rounded-2xl hover:bg-primary/90"
+            onClick={() => setShowForgotInfo(false)}
+          >
+            Got it
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -535,6 +591,12 @@ function RegisterScreen({ onBack }: { onBack: () => void }) {
   const mutation = useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected");
+      // Register user in access control first (assigns #user role)
+      try {
+        await actor._initializeAccessControlWithSecret("");
+      } catch (_) {
+        // Ignore if already registered or admin token error
+      }
       await actor.saveCallerUserProfile(form.name, form.phone, form.email, "");
     },
     onSuccess: () => {
@@ -660,6 +722,12 @@ function ProfileSetupScreen({ onComplete }: { onComplete: () => void }) {
   const mutation = useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected");
+      // Register user in access control first (assigns #user role)
+      try {
+        await actor._initializeAccessControlWithSecret("");
+      } catch (_) {
+        // Ignore if already registered or admin token error
+      }
       await actor.saveCallerUserProfile(form.name, form.phone, form.email, "");
     },
     onSuccess: () => {
@@ -2139,18 +2207,26 @@ function ProfileScreen({
 // ─────────────────────────────────────────────────────────────
 // ADMIN SCREEN
 // ─────────────────────────────────────────────────────────────
-function AdminScreen({ onBack }: { onBack: () => void }) {
+function AdminScreen({
+  onBack,
+  isOwnerAdmin,
+}: { onBack: () => void; isOwnerAdmin: boolean }) {
   const { actor, isFetching } = useActor();
   const queryClient = useQueryClient();
+  const OWNER_SECRET = "styloria_owner_1996";
 
   const { data: stats } = useQuery<AdminStats>({
-    queryKey: ["admin-stats"],
+    queryKey: ["admin-stats", isOwnerAdmin ? "owner" : "user"],
     queryFn: async () => {
       if (!actor) throw new Error("No actor");
       const todayDate = new Date().toISOString().split("T")[0];
+      if (isOwnerAdmin) {
+        return actor.ownerGetAdminStats(OWNER_SECRET, todayDate);
+      }
       return actor.getAdminStats(todayDate);
     },
     enabled: !!actor && !isFetching,
+    retry: 2,
   });
 
   const { data: services = [], isLoading: loadingServices } = useQuery<
@@ -2162,22 +2238,31 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
       return actor.listServices();
     },
     enabled: !!actor && !isFetching,
+    retry: 2,
   });
 
   const { data: allAppointments = [], isLoading: loadingAppointments } =
     useQuery<Appointment[]>({
-      queryKey: ["all-appointments"],
+      queryKey: ["all-appointments", isOwnerAdmin ? "owner" : "user"],
       queryFn: async () => {
         if (!actor) return [];
+        if (isOwnerAdmin) {
+          return actor.ownerListAllAppointments(OWNER_SECRET);
+        }
         return actor.listAllAppointments();
       },
       enabled: !!actor && !isFetching,
+      retry: 2,
     });
 
   const deleteServiceMutation = useMutation({
     mutationFn: async (id: bigint) => {
       if (!actor) throw new Error("No actor");
-      await actor.deleteService(id);
+      if (isOwnerAdmin) {
+        await actor.ownerDeleteService(OWNER_SECRET, id);
+      } else {
+        await actor.deleteService(id);
+      }
     },
     onSuccess: () => {
       toast.success("Service deleted");
@@ -2192,7 +2277,11 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
       status,
     }: { id: bigint; status: AppointmentStatus }) => {
       if (!actor) throw new Error("No actor");
-      await actor.updateAppointmentStatus(id, status);
+      if (isOwnerAdmin) {
+        await actor.ownerUpdateAppointmentStatus(OWNER_SECRET, id, status);
+      } else {
+        await actor.updateAppointmentStatus(id, status);
+      }
     },
     onSuccess: () => {
       toast.success("Status updated");
@@ -2201,16 +2290,49 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const updateDateTimeMutation = useMutation({
+    mutationFn: async ({
+      id,
+      newDate,
+      newTimeSlot,
+    }: { id: bigint; newDate: string; newTimeSlot: string }) => {
+      if (!actor) throw new Error("No actor");
+      await actor.ownerUpdateAppointmentDateTime(
+        OWNER_SECRET,
+        id,
+        newDate,
+        newTimeSlot,
+      );
+    },
+    onSuccess: () => {
+      toast.success("Appointment rescheduled");
+      queryClient.invalidateQueries({ queryKey: ["all-appointments"] });
+      setRescheduleAppt(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Reschedule state
+  const [rescheduleAppt, setRescheduleAppt] = useState<Appointment | null>(
+    null,
+  );
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+
   // Users (admin)
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery<
     UserProfile[]
   >({
-    queryKey: ["all-users"],
+    queryKey: ["all-users", isOwnerAdmin ? "owner" : "user"],
     queryFn: async () => {
       if (!actor) return [];
+      if (isOwnerAdmin) {
+        return actor.ownerListAllUserProfiles(OWNER_SECRET);
+      }
       return actor.listAllUserProfiles();
     },
     enabled: !!actor && !isFetching,
+    retry: 2,
   });
 
   const assignRoleMutation = useMutation({
@@ -2256,16 +2378,30 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
   const editServiceMutation = useMutation({
     mutationFn: async () => {
       if (!actor || !editingService) throw new Error("No actor");
-      await actor.updateService(
-        editingService.id,
-        editServiceForm.name,
-        editServiceForm.category as ServiceCategory,
-        BigInt(Number(editServiceForm.price)),
-        BigInt(Number(editServiceForm.durationMinutes)),
-        editServiceForm.description,
-        editServiceForm.imageUrl,
-        true,
-      );
+      if (isOwnerAdmin) {
+        await actor.ownerUpdateService(
+          OWNER_SECRET,
+          editingService.id,
+          editServiceForm.name,
+          editServiceForm.category as ServiceCategory,
+          BigInt(Number(editServiceForm.price)),
+          BigInt(Number(editServiceForm.durationMinutes)),
+          editServiceForm.description,
+          editServiceForm.imageUrl,
+          true,
+        );
+      } else {
+        await actor.updateService(
+          editingService.id,
+          editServiceForm.name,
+          editServiceForm.category as ServiceCategory,
+          BigInt(Number(editServiceForm.price)),
+          BigInt(Number(editServiceForm.durationMinutes)),
+          editServiceForm.description,
+          editServiceForm.imageUrl,
+          true,
+        );
+      }
     },
     onSuccess: () => {
       toast.success("Service updated!");
@@ -2301,16 +2437,28 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
     category: "hair",
     imageUrl: "",
   });
+  const adminAddPhotoImgRef = useRef<HTMLInputElement>(null);
+  const adminEditPhotoImgRef = useRef<HTMLInputElement>(null);
 
   const addPhotoMutation = useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("No actor");
-      await actor.addGalleryPhoto(
-        newPhoto.title,
-        newPhoto.category,
-        newPhoto.imageUrl,
-        new Date().toISOString(),
-      );
+      if (isOwnerAdmin) {
+        await actor.ownerAddGalleryPhoto(
+          OWNER_SECRET,
+          newPhoto.title,
+          newPhoto.category,
+          newPhoto.imageUrl,
+          new Date().toISOString(),
+        );
+      } else {
+        await actor.addGalleryPhoto(
+          newPhoto.title,
+          newPhoto.category,
+          newPhoto.imageUrl,
+          new Date().toISOString(),
+        );
+      }
     },
     onSuccess: () => {
       toast.success("Photo added!");
@@ -2324,7 +2472,11 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
   const deletePhotoMutation = useMutation({
     mutationFn: async (id: bigint) => {
       if (!actor) throw new Error("No actor");
-      await actor.deleteGalleryPhoto(id);
+      if (isOwnerAdmin) {
+        await actor.ownerDeleteGalleryPhoto(OWNER_SECRET, id);
+      } else {
+        await actor.deleteGalleryPhoto(id);
+      }
     },
     onSuccess: () => {
       toast.success("Photo deleted");
@@ -2336,13 +2488,24 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
   const editPhotoMutation = useMutation({
     mutationFn: async () => {
       if (!actor || !editingPhoto) throw new Error("No actor");
-      await actor.deleteGalleryPhoto(editingPhoto.id);
-      await actor.addGalleryPhoto(
-        editPhotoForm.title,
-        editPhotoForm.category,
-        editPhotoForm.imageUrl,
-        new Date().toISOString(),
-      );
+      if (isOwnerAdmin) {
+        await actor.ownerDeleteGalleryPhoto(OWNER_SECRET, editingPhoto.id);
+        await actor.ownerAddGalleryPhoto(
+          OWNER_SECRET,
+          editPhotoForm.title,
+          editPhotoForm.category,
+          editPhotoForm.imageUrl,
+          new Date().toISOString(),
+        );
+      } else {
+        await actor.deleteGalleryPhoto(editingPhoto.id);
+        await actor.addGalleryPhoto(
+          editPhotoForm.title,
+          editPhotoForm.category,
+          editPhotoForm.imageUrl,
+          new Date().toISOString(),
+        );
+      }
     },
     onSuccess: () => {
       toast.success("Photo updated!");
@@ -2355,15 +2518,28 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
   const addServiceMutation = useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("No actor");
-      await actor.createService(
-        newService.name,
-        newService.category as ServiceCategory,
-        BigInt(Number(newService.price)),
-        BigInt(Number(newService.durationMinutes)),
-        newService.description,
-        newService.imageUrl,
-        true,
-      );
+      if (isOwnerAdmin) {
+        await actor.ownerCreateService(
+          OWNER_SECRET,
+          newService.name,
+          newService.category as ServiceCategory,
+          BigInt(Number(newService.price)),
+          BigInt(Number(newService.durationMinutes)),
+          newService.description,
+          newService.imageUrl,
+          true,
+        );
+      } else {
+        await actor.createService(
+          newService.name,
+          newService.category as ServiceCategory,
+          BigInt(Number(newService.price)),
+          BigInt(Number(newService.durationMinutes)),
+          newService.description,
+          newService.imageUrl,
+          true,
+        );
+      }
     },
     onSuccess: () => {
       toast.success("Service added!");
@@ -3057,7 +3233,7 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
             {loadingAppointments ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} className="h-20 rounded-2xl shimmer" />
+                  <Skeleton key={i} className="h-24 rounded-2xl shimmer" />
                 ))}
               </div>
             ) : allAppointments.length === 0 ? (
@@ -3070,42 +3246,213 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
               </div>
             ) : (
               <div className="space-y-3">
-                {allAppointments.map((appt, i) => (
-                  <div
-                    key={String(appt.id)}
-                    data-ocid={`admin.booking.item.${i + 1}`}
-                    className="bg-white rounded-2xl p-4 card-shadow"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm">
-                          Service #{String(appt.serviceId)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {appt.date} · {appt.timeSlot}
-                        </p>
+                {allAppointments.map((appt, i) => {
+                  const customerUser = allUsers.find(
+                    (u) => u.id.toString() === appt.userId.toString(),
+                  );
+                  const customerName = customerUser?.name ?? "Unknown";
+                  const serviceItem = services.find(
+                    (s) => s.id === appt.serviceId,
+                  );
+                  const serviceName =
+                    serviceItem?.name ?? `Service #${String(appt.serviceId)}`;
+                  const isCancelledOrCompleted =
+                    appt.status === AppointmentStatus.cancelled ||
+                    appt.status === AppointmentStatus.completed;
+
+                  return (
+                    <div
+                      key={String(appt.id)}
+                      data-ocid={`admin.booking.item.${i + 1}`}
+                      className="bg-white rounded-2xl p-4 card-shadow"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-foreground truncate">
+                            {serviceName}
+                          </p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <User className="w-3 h-3 text-muted-foreground" />
+                            <p className="text-xs text-muted-foreground truncate">
+                              {customerName}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1">
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <CalendarDays className="w-3 h-3" />
+                              <span className="text-xs">{appt.date}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Clock className="w-3 h-3" />
+                              <span className="text-xs">{appt.timeSlot}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[10px] font-semibold px-2.5 py-1 rounded-full flex-none ${getStatusBadgeClass(appt.status)}`}
+                        >
+                          {appt.status.charAt(0).toUpperCase() +
+                            appt.status.slice(1)}
+                        </span>
                       </div>
-                      <select
-                        value={appt.status}
-                        onChange={(e) =>
-                          updateStatusMutation.mutate({
-                            id: appt.id,
-                            status: e.target.value as AppointmentStatus,
-                          })
-                        }
-                        className={`text-[10px] font-semibold px-2 py-1 rounded-full border-0 cursor-pointer focus:outline-none ${getStatusBadgeClass(appt.status)}`}
-                      >
-                        {Object.values(AppointmentStatus).map((s) => (
-                          <option key={s} value={s}>
-                            {s.charAt(0).toUpperCase() + s.slice(1)}
-                          </option>
-                        ))}
-                      </select>
+
+                      {/* Action buttons */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {appt.status === AppointmentStatus.pending && (
+                          <button
+                            type="button"
+                            data-ocid={`admin.booking.confirm_button.${i + 1}`}
+                            onClick={() =>
+                              updateStatusMutation.mutate({
+                                id: appt.id,
+                                status: AppointmentStatus.confirmed,
+                              })
+                            }
+                            disabled={updateStatusMutation.isPending}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold hover:bg-emerald-200 transition-colors disabled:opacity-50"
+                          >
+                            <Check className="w-3 h-3" />
+                            Confirm
+                          </button>
+                        )}
+                        {appt.status === AppointmentStatus.confirmed && (
+                          <button
+                            type="button"
+                            data-ocid={`admin.booking.primary_button.${i + 1}`}
+                            onClick={() =>
+                              updateStatusMutation.mutate({
+                                id: appt.id,
+                                status: AppointmentStatus.completed,
+                              })
+                            }
+                            disabled={updateStatusMutation.isPending}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-semibold hover:bg-blue-200 transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            Complete
+                          </button>
+                        )}
+                        {!isCancelledOrCompleted && (
+                          <button
+                            type="button"
+                            data-ocid={`admin.booking.delete_button.${i + 1}`}
+                            onClick={() =>
+                              updateStatusMutation.mutate({
+                                id: appt.id,
+                                status: AppointmentStatus.cancelled,
+                              })
+                            }
+                            disabled={updateStatusMutation.isPending}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-[10px] font-semibold hover:bg-destructive/20 transition-colors disabled:opacity-50"
+                          >
+                            <X className="w-3 h-3" />
+                            Cancel
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          data-ocid={`admin.booking.edit_button.${i + 1}`}
+                          onClick={() => {
+                            setRescheduleAppt(appt);
+                            setRescheduleDate(appt.date);
+                            setRescheduleTime(appt.timeSlot);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-pink-100 text-primary text-[10px] font-semibold hover:bg-pink-200 transition-colors"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Reschedule
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
+
+            {/* Reschedule Dialog */}
+            <Dialog
+              open={!!rescheduleAppt}
+              onOpenChange={(open) => {
+                if (!open) setRescheduleAppt(null);
+              }}
+            >
+              <DialogContent className="max-w-sm mx-auto rounded-3xl">
+                <DialogHeader>
+                  <DialogTitle className="font-display">
+                    Reschedule Appointment
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 mt-2">
+                  <div>
+                    <label
+                      htmlFor="reschedule-date"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      New Date
+                    </label>
+                    <Input
+                      id="reschedule-date"
+                      data-ocid="admin.reschedule.input"
+                      type="date"
+                      value={rescheduleDate}
+                      onChange={(e) => setRescheduleDate(e.target.value)}
+                      className="rounded-xl border-pink-200 h-10"
+                      min={new Date().toISOString().split("T")[0]}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="reschedule-time"
+                      className="text-xs font-semibold block mb-1"
+                    >
+                      New Time Slot
+                    </label>
+                    <Input
+                      id="reschedule-time"
+                      type="text"
+                      placeholder="e.g. 10:00 AM"
+                      value={rescheduleTime}
+                      onChange={(e) => setRescheduleTime(e.target.value)}
+                      className="rounded-xl border-pink-200 h-10"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    data-ocid="admin.reschedule.save_button"
+                    className="flex-1 h-10 bg-primary text-white rounded-xl shadow-pink text-sm"
+                    onClick={() => {
+                      if (!rescheduleAppt || !rescheduleDate || !rescheduleTime)
+                        return;
+                      updateDateTimeMutation.mutate({
+                        id: rescheduleAppt.id,
+                        newDate: rescheduleDate,
+                        newTimeSlot: rescheduleTime,
+                      });
+                    }}
+                    disabled={
+                      updateDateTimeMutation.isPending ||
+                      !rescheduleDate ||
+                      !rescheduleTime
+                    }
+                  >
+                    {updateDateTimeMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    data-ocid="admin.reschedule.cancel_button"
+                    className="flex-1 h-10 rounded-xl border-pink-200 text-sm"
+                    onClick={() => setRescheduleAppt(null)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* ── Gallery ── */}
@@ -3257,21 +3604,48 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
                   </div>
                   <div>
                     <label
-                      htmlFor="ep-url"
+                      htmlFor="admin-edit-photo-img"
                       className="text-xs font-semibold block mb-1"
                     >
-                      Image URL
+                      Photo
                     </label>
-                    <Input
-                      id="ep-url"
-                      value={editPhotoForm.imageUrl}
-                      onChange={(e) =>
-                        setEditPhotoForm((p) => ({
-                          ...p,
-                          imageUrl: e.target.value,
-                        }))
-                      }
-                      className="rounded-xl border-pink-200 h-10"
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        data-ocid="admin.gallery.edit_upload_button"
+                        size="sm"
+                        variant="outline"
+                        className="h-9 text-xs rounded-xl border-pink-200"
+                        onClick={() => adminEditPhotoImgRef.current?.click()}
+                      >
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
+                        Upload Image
+                      </Button>
+                      {editPhotoForm.imageUrl && (
+                        <img
+                          src={editPhotoForm.imageUrl}
+                          alt="preview"
+                          className="w-9 h-9 rounded-xl object-cover border border-pink-200"
+                        />
+                      )}
+                    </div>
+                    <input
+                      id="admin-edit-photo-img"
+                      ref={adminEditPhotoImgRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          setEditPhotoForm((p) => ({
+                            ...p,
+                            imageUrl: reader.result as string,
+                          }));
+                        reader.readAsDataURL(file);
+                      }}
                     />
                   </div>
                 </div>
@@ -3351,23 +3725,49 @@ function AdminScreen({ onBack }: { onBack: () => void }) {
                   </div>
                   <div>
                     <label
-                      htmlFor="photo-url"
+                      htmlFor="admin-add-photo-img"
                       className="text-xs font-semibold block mb-1"
                     >
-                      Image URL
+                      Photo
                     </label>
-                    <Input
-                      id="photo-url"
-                      placeholder="https://example.com/photo.jpg"
-                      value={newPhoto.imageUrl}
-                      onChange={(e) =>
-                        setNewPhoto((p) => ({ ...p, imageUrl: e.target.value }))
-                      }
-                      className="rounded-xl border-pink-200 h-10"
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        data-ocid="admin.gallery.upload_button"
+                        size="sm"
+                        variant="outline"
+                        className="h-9 text-xs rounded-xl border-pink-200"
+                        onClick={() => adminAddPhotoImgRef.current?.click()}
+                      >
+                        <Upload className="w-3.5 h-3.5 mr-1.5" />
+                        Upload Image
+                      </Button>
+                      {newPhoto.imageUrl && (
+                        <img
+                          src={newPhoto.imageUrl}
+                          alt="preview"
+                          className="w-9 h-9 rounded-xl object-cover border border-pink-200"
+                        />
+                      )}
+                    </div>
+                    <input
+                      id="admin-add-photo-img"
+                      ref={adminAddPhotoImgRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          setNewPhoto((p) => ({
+                            ...p,
+                            imageUrl: reader.result as string,
+                          }));
+                        reader.readAsDataURL(file);
+                      }}
                     />
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      Paste a direct image URL
-                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
@@ -3525,15 +3925,18 @@ const GALLERY_CATEGORIES = [
 
 function GalleryScreen({
   isAdmin,
+  isOwnerAdmin,
   onNavigate: _onNavigate,
   appointments,
 }: {
   isAdmin: boolean;
+  isOwnerAdmin: boolean;
   onNavigate: (s: Screen) => void;
   appointments: Appointment[];
 }) {
   const { actor, isFetching } = useActor();
   const queryClient = useQueryClient();
+  const OWNER_SECRET = "styloria_owner_1996";
   const [activeCategory, setActiveCategory] = useState("all");
   const [showAddPhoto, setShowAddPhoto] = useState(false);
   const [newPhoto, setNewPhoto] = useState({
@@ -3541,6 +3944,7 @@ function GalleryScreen({
     category: "hair",
     imageUrl: "",
   });
+  const galleryImgRef = useRef<HTMLInputElement>(null);
 
   const { data: photos = [], isLoading } = useQuery<GalleryPhoto[]>({
     queryKey: ["gallery-photos"],
@@ -3554,12 +3958,22 @@ function GalleryScreen({
   const addPhotoMutation = useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("No actor");
-      await actor.addGalleryPhoto(
-        newPhoto.title,
-        newPhoto.category,
-        newPhoto.imageUrl,
-        new Date().toISOString(),
-      );
+      if (isOwnerAdmin) {
+        await actor.ownerAddGalleryPhoto(
+          OWNER_SECRET,
+          newPhoto.title,
+          newPhoto.category,
+          newPhoto.imageUrl,
+          new Date().toISOString(),
+        );
+      } else {
+        await actor.addGalleryPhoto(
+          newPhoto.title,
+          newPhoto.category,
+          newPhoto.imageUrl,
+          new Date().toISOString(),
+        );
+      }
     },
     onSuccess: () => {
       toast.success("Photo added to gallery!");
@@ -3573,7 +3987,11 @@ function GalleryScreen({
   const deletePhotoMutation = useMutation({
     mutationFn: async (id: bigint) => {
       if (!actor) throw new Error("No actor");
-      await actor.deleteGalleryPhoto(id);
+      if (isOwnerAdmin) {
+        await actor.ownerDeleteGalleryPhoto(OWNER_SECRET, id);
+      } else {
+        await actor.deleteGalleryPhoto(id);
+      }
     },
     onSuccess: () => {
       toast.success("Photo removed");
@@ -3766,23 +4184,49 @@ function GalleryScreen({
             </div>
             <div>
               <label
-                htmlFor="g-url"
+                htmlFor="gallery-photo-img"
                 className="text-xs font-semibold block mb-1"
               >
-                Image URL
+                Photo
               </label>
-              <Input
-                id="g-url"
-                placeholder="https://example.com/photo.jpg"
-                value={newPhoto.imageUrl}
-                onChange={(e) =>
-                  setNewPhoto((p) => ({ ...p, imageUrl: e.target.value }))
-                }
-                className="rounded-xl border-pink-200 h-10"
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  data-ocid="gallery.upload_button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-xs rounded-xl border-pink-200"
+                  onClick={() => galleryImgRef.current?.click()}
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Upload Image
+                </Button>
+                {newPhoto.imageUrl && (
+                  <img
+                    src={newPhoto.imageUrl}
+                    alt="preview"
+                    className="w-9 h-9 rounded-xl object-cover border border-pink-200"
+                  />
+                )}
+              </div>
+              <input
+                id="gallery-photo-img"
+                ref={galleryImgRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () =>
+                    setNewPhoto((p) => ({
+                      ...p,
+                      imageUrl: reader.result as string,
+                    }));
+                  reader.readAsDataURL(file);
+                }}
               />
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Paste a direct image URL
-              </p>
             </div>
           </div>
           <div className="flex gap-2 mt-4">
@@ -3823,6 +4267,7 @@ export default function App() {
   const [prevScreen, setPrevScreen] = useState<Screen>("home");
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingSuccessId, setBookingSuccessId] = useState<string>("");
+  const [isOwnerAdmin, setIsOwnerAdmin] = useState<boolean>(false);
   const [booking, setBooking] = useState<BookingState>({
     service: null,
     date: "",
@@ -3987,7 +4432,10 @@ export default function App() {
         {screen === "admin-login" && (
           <AdminLoginScreen
             onBack={() => navigate("login")}
-            onSuccess={() => navigate("admin")}
+            onSuccess={() => {
+              setIsOwnerAdmin(true);
+              navigate("admin");
+            }}
           />
         )}
 
@@ -4033,6 +4481,7 @@ export default function App() {
               {screen === "gallery" && (
                 <GalleryScreen
                   isAdmin={isAdmin}
+                  isOwnerAdmin={isOwnerAdmin}
                   onNavigate={navigate}
                   appointments={myAppointments}
                 />
@@ -4040,7 +4489,10 @@ export default function App() {
               {screen === "profile" && (
                 <ProfileScreen
                   profile={profile ?? null}
-                  onNavigate={navigate}
+                  onNavigate={(s) => {
+                    if (s === "admin") setIsOwnerAdmin(false);
+                    navigate(s);
+                  }}
                   onLogout={handleLogout}
                   isAdmin={isAdmin}
                   appointments={myAppointments}
@@ -4091,6 +4543,7 @@ export default function App() {
         {screen === "admin" && (
           <AdminScreen
             onBack={() => navigate(identity ? "profile" : "admin-login")}
+            isOwnerAdmin={isOwnerAdmin}
           />
         )}
 

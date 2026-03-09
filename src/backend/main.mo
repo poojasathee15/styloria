@@ -1,17 +1,18 @@
 import Map "mo:core/Map";
 import Nat "mo:core/Nat";
-import Array "mo:core/Array";
-import Text "mo:core/Text";
 import List "mo:core/List";
-import Iter "mo:core/Iter";
+import Array "mo:core/Array";
 import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
-import Migration "migration";
+import Text "mo:core/Text";
+import Iter "mo:core/Iter";
+
 
 import MixinAuthorization "authorization/MixinAuthorization";
+import MixinStorage "blob-storage/Mixin";
 import AccessControl "authorization/access-control";
 
-(with migration = Migration.run)
+
 actor {
   type Service = {
     id : Nat;
@@ -107,6 +108,15 @@ actor {
 
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
+  include MixinStorage();
+
+  let ownerSecret = "styloria_owner_1996";
+
+  func validateOwnerSecret(secret : Text) {
+    if (secret != ownerSecret) {
+      Runtime.trap("Unauthorized: Invalid owner secret");
+    };
+  };
 
   public shared ({ caller }) func createService(
     name : Text,
@@ -528,6 +538,206 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can delete gallery photos");
     };
+
+    switch (galleryPhotos.get(photoId)) {
+      case (null) { Runtime.trap("Gallery photo not found") };
+      case (?_) {
+        galleryPhotos.remove(photoId);
+      };
+    };
+  };
+
+  public shared ({ caller }) func ownerCreateService(
+    ownerSecret : Text,
+    name : Text,
+    category : ServiceCategory,
+    price : Nat,
+    durationMinutes : Nat,
+    description : Text,
+    imageUrl : Text,
+    isActive : Bool,
+  ) : async Nat {
+    validateOwnerSecret(ownerSecret);
+
+    let serviceId = nextServiceId;
+    let newService : Service = {
+      id = serviceId;
+      name = name;
+      category = category;
+      price = price;
+      durationMinutes = durationMinutes;
+      description = description;
+      imageUrl = imageUrl;
+      isActive = isActive;
+    };
+    services.add(serviceId, newService);
+    nextServiceId += 1;
+    serviceId;
+  };
+
+  public shared ({ caller }) func ownerUpdateService(
+    ownerSecret : Text,
+    serviceId : Nat,
+    name : Text,
+    category : ServiceCategory,
+    price : Nat,
+    durationMinutes : Nat,
+    description : Text,
+    imageUrl : Text,
+    isActive : Bool,
+  ) : async () {
+    validateOwnerSecret(ownerSecret);
+
+    switch (services.get(serviceId)) {
+      case (null) { Runtime.trap("Service not found") };
+      case (?_) {
+        let updatedService : Service = {
+          id = serviceId;
+          name = name;
+          category = category;
+          price = price;
+          durationMinutes = durationMinutes;
+          description = description;
+          imageUrl = imageUrl;
+          isActive = isActive;
+        };
+        services.add(serviceId, updatedService);
+      };
+    };
+  };
+
+  public shared ({ caller }) func ownerDeleteService(ownerSecret : Text, serviceId : Nat) : async () {
+    validateOwnerSecret(ownerSecret);
+
+    switch (services.get(serviceId)) {
+      case (null) { Runtime.trap("Service not found") };
+      case (?_) {
+        services.remove(serviceId);
+      };
+    };
+  };
+
+  public query func ownerListAllAppointments(ownerSecret : Text) : async [Appointment] {
+    validateOwnerSecret(ownerSecret);
+    Array.fromIter(appointments.values());
+  };
+
+  public query func ownerListAllUserProfiles(ownerSecret : Text) : async [UserProfile] {
+    validateOwnerSecret(ownerSecret);
+    Array.fromIter(userProfiles.values());
+  };
+
+  public query func ownerGetAdminStats(ownerSecret : Text, todayDate : Text) : async AdminStats {
+    validateOwnerSecret(ownerSecret);
+
+    var totalBookings = 0;
+    var totalRevenue = 0;
+    var pendingCount = 0;
+    var confirmedCount = 0;
+    var completedCount = 0;
+    var cancelledCount = 0;
+    var todayBookingsCount = 0;
+    var upcomingBookingsCount = 0;
+
+    for (appointment in appointments.values()) {
+      totalBookings += 1;
+      switch (appointment.status) {
+        case (#pending) { pendingCount += 1 };
+        case (#confirmed) { confirmedCount += 1 };
+        case (#completed) { completedCount += 1 };
+        case (#cancelled) { cancelledCount += 1 };
+      };
+
+      if (appointment.date == todayDate) {
+        todayBookingsCount += 1;
+      } else if ((appointment.status == #pending or appointment.status == #confirmed) and appointment.date >= todayDate) {
+        upcomingBookingsCount += 1;
+      };
+    };
+
+    for (payment in payments.values()) {
+      if (payment.status == #completed) {
+        totalRevenue += payment.amount;
+      };
+    };
+
+    {
+      totalBookings;
+      totalRevenue;
+      pendingCount;
+      confirmedCount;
+      completedCount;
+      cancelledCount;
+      todayBookingsCount;
+      upcomingBookingsCount;
+    };
+  };
+
+  public shared ({ caller }) func ownerUpdateAppointmentStatus(
+    ownerSecret : Text,
+    appointmentId : Nat,
+    status : AppointmentStatus,
+  ) : async () {
+    validateOwnerSecret(ownerSecret);
+
+    switch (appointments.get(appointmentId)) {
+      case (null) { Runtime.trap("Appointment not found") };
+      case (?appointment) {
+        let updatedAppointment : Appointment = {
+          appointment with
+          status = status;
+        };
+        appointments.add(appointmentId, updatedAppointment);
+      };
+    };
+  };
+
+  public shared ({ caller }) func ownerUpdateAppointmentDateTime(
+    ownerSecret : Text,
+    appointmentId : Nat,
+    newDate : Text,
+    newTimeSlot : Text,
+  ) : async () {
+    validateOwnerSecret(ownerSecret);
+
+    switch (appointments.get(appointmentId)) {
+      case (null) { Runtime.trap("Appointment not found") };
+      case (?appointment) {
+        let updatedAppointment : Appointment = {
+          appointment with
+          date = newDate;
+          timeSlot = newTimeSlot;
+        };
+        appointments.add(appointmentId, updatedAppointment);
+      };
+    };
+  };
+
+  public shared ({ caller }) func ownerAddGalleryPhoto(
+    ownerSecret : Text,
+    title : Text,
+    category : Text,
+    imageUrl : Text,
+    uploadedAt : Text,
+  ) : async Nat {
+    validateOwnerSecret(ownerSecret);
+
+    let photoId = nextGalleryPhotoId;
+    let galleryPhoto : GalleryPhoto = {
+      id = photoId;
+      title;
+      category;
+      imageUrl;
+      uploadedAt;
+    };
+
+    galleryPhotos.add(photoId, galleryPhoto);
+    nextGalleryPhotoId += 1;
+    photoId;
+  };
+
+  public shared ({ caller }) func ownerDeleteGalleryPhoto(ownerSecret : Text, photoId : Nat) : async () {
+    validateOwnerSecret(ownerSecret);
 
     switch (galleryPhotos.get(photoId)) {
       case (null) { Runtime.trap("Gallery photo not found") };

@@ -14,16 +14,6 @@ export interface GalleryPhoto {
     category: string;
     uploadedAt: string;
 }
-export interface AdminStats {
-    pendingCount: bigint;
-    cancelledCount: bigint;
-    totalBookings: bigint;
-    completedCount: bigint;
-    confirmedCount: bigint;
-    upcomingBookingsCount: bigint;
-    totalRevenue: bigint;
-    todayBookingsCount: bigint;
-}
 export interface Service {
     id: bigint;
     name: string;
@@ -39,6 +29,16 @@ export interface Payment {
     status: PaymentStatus;
     amount: bigint;
     appointmentId: bigint;
+}
+export interface AdminStats {
+    pendingCount: bigint;
+    cancelledCount: bigint;
+    totalBookings: bigint;
+    completedCount: bigint;
+    confirmedCount: bigint;
+    upcomingBookingsCount: bigint;
+    totalRevenue: bigint;
+    todayBookingsCount: bigint;
 }
 export interface Appointment {
     id: bigint;
@@ -107,6 +107,16 @@ export interface backendInterface {
     listGalleryPhotos(): Promise<Array<GalleryPhoto>>;
     listMyAppointments(): Promise<Array<Appointment>>;
     listServices(): Promise<Array<Service>>;
+    ownerAddGalleryPhoto(ownerSecret: string, title: string, category: string, imageUrl: string, uploadedAt: string): Promise<bigint>;
+    ownerCreateService(ownerSecret: string, name: string, category: ServiceCategory, price: bigint, durationMinutes: bigint, description: string, imageUrl: string, isActive: boolean): Promise<bigint>;
+    ownerDeleteGalleryPhoto(ownerSecret: string, photoId: bigint): Promise<void>;
+    ownerDeleteService(ownerSecret: string, serviceId: bigint): Promise<void>;
+    ownerGetAdminStats(ownerSecret: string, todayDate: string): Promise<AdminStats>;
+    ownerListAllAppointments(ownerSecret: string): Promise<Array<Appointment>>;
+    ownerListAllUserProfiles(ownerSecret: string): Promise<Array<UserProfile>>;
+    ownerUpdateAppointmentDateTime(ownerSecret: string, appointmentId: bigint, newDate: string, newTimeSlot: string): Promise<void>;
+    ownerUpdateAppointmentStatus(ownerSecret: string, appointmentId: bigint, status: AppointmentStatus): Promise<void>;
+    ownerUpdateService(ownerSecret: string, serviceId: bigint, name: string, category: ServiceCategory, price: bigint, durationMinutes: bigint, description: string, imageUrl: string, isActive: boolean): Promise<void>;
     saveCallerUserProfile(name: string, phone: string, email: string, profilePictureUrl: string): Promise<void>;
     updateAppointmentStatus(appointmentId: bigint, status: AppointmentStatus): Promise<void>;
     updateService(serviceId: bigint, name: string, category: ServiceCategory, price: bigint, durationMinutes: bigint, description: string, imageUrl: string, isActive: boolean): Promise<void>;

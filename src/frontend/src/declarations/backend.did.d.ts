@@ -76,7 +76,33 @@ export type UserRole = { 'admin' : null } |
 export type UserRole__1 = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface _CaffeineStorageCreateCertificateResult {
+  'method' : string,
+  'blob_hash' : string,
+}
+export interface _CaffeineStorageRefillInformation {
+  'proposed_top_up_amount' : [] | [bigint],
+}
+export interface _CaffeineStorageRefillResult {
+  'success' : [] | [boolean],
+  'topped_up_amount' : [] | [bigint],
+}
 export interface _SERVICE {
+  '_caffeineStorageBlobIsLive' : ActorMethod<[Uint8Array], boolean>,
+  '_caffeineStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
+  '_caffeineStorageConfirmBlobDeletion' : ActorMethod<
+    [Array<Uint8Array>],
+    undefined
+  >,
+  '_caffeineStorageCreateCertificate' : ActorMethod<
+    [string],
+    _CaffeineStorageCreateCertificateResult
+  >,
+  '_caffeineStorageRefillCashier' : ActorMethod<
+    [[] | [_CaffeineStorageRefillInformation]],
+    _CaffeineStorageRefillResult
+  >,
+  '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addGalleryPhoto' : ActorMethod<[string, string, string, string], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole__1], undefined>,
@@ -104,6 +130,41 @@ export interface _SERVICE {
   'listGalleryPhotos' : ActorMethod<[], Array<GalleryPhoto>>,
   'listMyAppointments' : ActorMethod<[], Array<Appointment>>,
   'listServices' : ActorMethod<[], Array<Service>>,
+  'ownerAddGalleryPhoto' : ActorMethod<
+    [string, string, string, string, string],
+    bigint
+  >,
+  'ownerCreateService' : ActorMethod<
+    [string, string, ServiceCategory, bigint, bigint, string, string, boolean],
+    bigint
+  >,
+  'ownerDeleteGalleryPhoto' : ActorMethod<[string, bigint], undefined>,
+  'ownerDeleteService' : ActorMethod<[string, bigint], undefined>,
+  'ownerGetAdminStats' : ActorMethod<[string, string], AdminStats>,
+  'ownerListAllAppointments' : ActorMethod<[string], Array<Appointment>>,
+  'ownerListAllUserProfiles' : ActorMethod<[string], Array<UserProfile>>,
+  'ownerUpdateAppointmentDateTime' : ActorMethod<
+    [string, bigint, string, string],
+    undefined
+  >,
+  'ownerUpdateAppointmentStatus' : ActorMethod<
+    [string, bigint, AppointmentStatus],
+    undefined
+  >,
+  'ownerUpdateService' : ActorMethod<
+    [
+      string,
+      bigint,
+      string,
+      ServiceCategory,
+      bigint,
+      bigint,
+      string,
+      string,
+      boolean,
+    ],
+    undefined
+  >,
   'saveCallerUserProfile' : ActorMethod<
     [string, string, string, string],
     undefined
